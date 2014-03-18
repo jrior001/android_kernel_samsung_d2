@@ -55,6 +55,15 @@ extern struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata;
 extern void __init mms_tsp_input_init(void);
 #endif
 
+#if defined(CONFIG_MACH_ESPRESSO_VZW) || defined(CONFIG_MACH_ESPRESSO_ATT) \
+				|| defined(CONFIG_MACH_ESPRESSO10_SPR) \
+				|| defined(CONFIG_MACH_ESPRESSO10_VZW) \
+				|| defined(CONFIG_MACH_ESPRESSO10_ATT) \
+				|| defined(CONFIG_MACH_KONA) \
+				|| defined(CONFIG_MACH_ESPRESSO_SPR)
+extern void __init usb_switch_init(void);
+#endif
+
 #define PLATFORM_IS_CHARM25() \
 	(machine_is_msm8960_cdp() && \
 		(socinfo_get_platform_subtype() == 1) \

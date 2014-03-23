@@ -11,6 +11,7 @@
  *
  */
 #include <linux/kernel.h>
+#include <linux/msm_thermal.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/irq.h>
@@ -20,7 +21,7 @@
 #include <linux/i2c/isl9519.h>
 #include <linux/gpio.h>
 #include <linux/msm_ssbi.h>
-#include <linux/regulator/gpio-regulator.h>
+#include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/regulator/consumer.h>
@@ -32,8 +33,10 @@
 #include <linux/android_pmem.h>
 #endif
 #include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/platform_data/qcom_wcnss_device.h>
+#include <linux/platform_data/mms_ts.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
 #include <linux/i2c/atmel_mxt_ts.h>
@@ -49,6 +52,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/mach/mmc.h>
 
+#include <mach/msm_dcvs.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_spi.h>
@@ -70,6 +74,7 @@
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
 #include <mach/msm8960-gpio.h>
+#include <mach/kgsl.h>
 #ifdef CONFIG_SENSORS_AK8975
 #include <linux/i2c/ak8975.h>
 #endif
@@ -97,8 +102,8 @@
 #endif
 #ifdef CONFIG_WCD9310_CODEC
 #include <linux/slimbus/slimbus.h>
-#include <linux/mfd/wcd9310/core.h>
-#include <linux/mfd/wcd9310/pdata.h>
+#include <linux/mfd/wcd9xxx/core.h>
+#include <linux/mfd/wcd9xxx/pdata.h>
 #endif
 #ifdef CONFIG_KEYBOARD_GPIO
 #include <linux/gpio_keys.h>
@@ -152,7 +157,7 @@
 #include "pm.h"
 #include <mach/cpuidle.h>
 #include "rpm_resources.h"
-#include "mpm.h"
+#include <mach/mpm.h>
 #include "acpuclock.h"
 #include "rpm_log.h"
 #include "smd_private.h"
@@ -291,29 +296,29 @@ static struct msm_gpiomux_config msm8960_sec_ts_configs[] = {
 	},
 };
 
-
-#define MSM_PMEM_ADSP_SIZE         0x5000000 /* 80 Mbytes */
-#define MSM_PMEM_AUDIO_SIZE        0x160000 /* 1.375 Mbytes */
+#define MSM_PMEM_ADSP_SIZE         0x5100000 /* 81 Mbytes */
+#define MSM_PMEM_AUDIO_SIZE        0x4CF000 /* 5 Mbytes */
 #define MSM_PMEM_SIZE 0x2800000 /* 40 Mbytes */
 #define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #define MSM_HDMI_PRIM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-#define MSM_PMEM_KERNEL_EBI1_SIZE  0x280000 /* 2.5MB */
-
+#define HOLE_SIZE 0x20000
+#define MSM_ION_MFC_META_SIZE  0x40000 /* 256 Kbytes */
+#define MSM_CONTIG_MEM_SIZE 0x65000
 #ifdef CONFIG_MSM_IOMMU
-#define MSM_ION_MM_SIZE            0x3800000
+#define MSM_ION_MM_SIZE            0x5100000
 #define MSM_ION_SF_SIZE            0x0
 #define MSM_ION_QSECOM_SIZE        0x780000 /* (7.5MB) */
 #define MSM_ION_HEAP_NUM	7
 #else
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
-#define MSM_ION_SF_SIZE		0x3500000 /* 53MB */
-#define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
+#define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
+#define MSM_ION_QSECOM_SIZE	0x600000 /* (6MB) */
 #define MSM_ION_HEAP_NUM	8
 #endif
-#define MSM_ION_MM_FW_SIZE	0x200000 /* (2MB) */
-#define MSM_ION_MFC_SIZE	SZ_8K
+#define MSM_ION_MM_FW_SIZE	(0x200000 - HOLE_SIZE) /* 128kb */
+#define MSM_ION_MFC_SIZE (SZ_8K + MSM_ION_MFC_META_SIZE)
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 #define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
 #define MSM_LIQUID_ION_SF_SIZE MSM_LIQUID_PMEM_SIZE
@@ -379,7 +384,7 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_device = {
+static struct platform_device msm8960_android_pmem_device = {
 	.name = "android_pmem",
 	.id = 0,
 	.dev = {.platform_data = &android_pmem_pdata},
@@ -391,12 +396,11 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.cached = 0,
 	.memory_type = MEMTYPE_EBI1,
 };
-static struct platform_device android_pmem_adsp_device = {
+static struct platform_device msm8960_android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
 };
-#endif
 
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
 	.name = "pmem_audio",
@@ -405,14 +409,15 @@ static struct android_pmem_platform_data android_pmem_audio_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_audio_device = {
+static struct platform_device msm8960_android_pmem_audio_device = {
 	.name = "android_pmem",
 	.id = 4,
 	.dev = { .platform_data = &android_pmem_audio_pdata },
 };
-#endif
+#endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
+#endif /*CONFIG_ANDROID_PMEM*/
 
-struct fmem_platform_data fmem_pdata = {
+struct fmem_platform_data msm8960_fmem_pdata = {
 };
 
 #define DSP_RAM_BASE_8960 0x8da00000
@@ -477,42 +482,6 @@ static void __init reserve_rtb_memory(void)
 #endif
 }
 
-static void __init size_pmem_devices(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	android_pmem_adsp_pdata.size = pmem_adsp_size;
-
-	if (!pmem_param_set) {
-		if (machine_is_msm8960_liquid())
-			pmem_size = MSM_LIQUID_PMEM_SIZE;
-		if (msm8960_hdmi_as_primary_selected())
-			pmem_size = MSM_HDMI_PRIM_PMEM_SIZE;
-	}
-
-	android_pmem_pdata.size = pmem_size;
-#endif
-	android_pmem_audio_pdata.size = MSM_PMEM_AUDIO_SIZE;
-#endif
-}
-
-static void __init reserve_memory_for(struct android_pmem_platform_data *p)
-{
-	msm8960_reserve_table[p->memory_type].size += p->size;
-}
-
-static void __init reserve_pmem_memory(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	reserve_memory_for(&android_pmem_adsp_pdata);
-	reserve_memory_for(&android_pmem_pdata);
-#endif
-	reserve_memory_for(&android_pmem_audio_pdata);
-	msm8960_reserve_table[MEMTYPE_EBI1].size += pmem_kernel_ebi1_size;
-#endif
-}
-
 static int msm8960_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
@@ -522,7 +491,7 @@ static int msm8960_paddr_to_memtype(unsigned int paddr)
 
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
+static struct ion_cp_heap_pdata cp_mm_msm8960_ion_pdata = {
 	.permission_type = IPT_TYPE_MM_CARVEOUT,
 	.align = SZ_64K,
 	.reusable = FMEM_ENABLED,
@@ -532,7 +501,7 @@ static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.iommu_2x_map_domain = VIDEO_DOMAIN,
 };
 
-static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
+static struct ion_cp_heap_pdata cp_mfc_msm8960_ion_pdata = {
 	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
 	.align = PAGE_SIZE,
 	.reusable = 0,
@@ -540,13 +509,13 @@ static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
 	.fixed_position = FIXED_HIGH,
 };
 
-static struct ion_co_heap_pdata co_ion_pdata = {
+static struct ion_co_heap_pdata co_msm8960_ion_pdata = {
 	.adjacent_mem_id = INVALID_HEAP_ID,
 	.align = PAGE_SIZE,
 	.mem_is_fmem = 0,
 };
 
-static struct ion_co_heap_pdata fw_co_ion_pdata = {
+static struct ion_co_heap_pdata fw_co_msm8960_ion_pdata = {
 	.adjacent_mem_id = ION_CP_MM_HEAP_ID,
 	.align = SZ_128K,
 	.mem_is_fmem = FMEM_ENABLED,
@@ -565,9 +534,7 @@ static struct ion_co_heap_pdata fw_co_ion_pdata = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
+struct ion_platform_heap msm8960_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -580,7 +547,8 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mm_ion_pdata,
+			.extra_data = (void *) &cp_mm_msm8960_ion_pdata,
+			.priv   = &ion_mm_heap_device.dev,
 		},
 		{
 			.id	= ION_MM_FIRMWARE_HEAP_ID,
@@ -588,7 +556,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MM_FIRMWARE_HEAP_NAME,
 			.size	= MSM_ION_MM_FW_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &fw_co_ion_pdata,
+			.extra_data = (void *) &fw_co_msm8960_ion_pdata,
 		},
 		{
 			.id	= ION_CP_MFC_HEAP_ID,
@@ -596,7 +564,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_MFC_HEAP_NAME,
 			.size	= MSM_ION_MFC_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mfc_ion_pdata,
+			.extra_data = (void *) &cp_mfc_msm8960_ion_pdata,
 		},
 #ifndef CONFIG_MSM_IOMMU
 		{
@@ -605,7 +573,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_SF_HEAP_NAME,
 			.size	= MSM_ION_SF_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
 		},
 #endif
 		{
@@ -619,7 +587,7 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_QSECOM_HEAP_NAME,
 			.size	= MSM_ION_QSECOM_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
 		},
 		{
 			.id	= ION_AUDIO_HEAP_ID,
@@ -627,23 +595,38 @@ static struct ion_platform_data ion_pdata = {
 			.name	= ION_AUDIO_HEAP_NAME,
 			.size	= MSM_ION_AUDIO_SIZE,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &co_ion_pdata,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
+		},
+#ifdef CONFIG_CMA
+		{
+			.id     = ION_ADSP_HEAP_ID,
+			.type   = ION_HEAP_TYPE_DMA,
+			.name   = ION_ADSP_HEAP_NAME,
+			.size   = MSM_ION_ADSP_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_msm8960_ion_pdata,
+			.priv   = &ion_adsp_heap_device.dev,
 		},
 #endif
-	}
+#endif
 };
 
-static struct platform_device ion_dev = {
+static struct ion_platform_data msm8960_ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = msm8960_heaps,
+};
+
+static struct platform_device msm8960_ion_dev = {
 	.name = "ion-msm",
 	.id = 1,
-	.dev = { .platform_data = &ion_pdata },
+	.dev = { .platform_data = &msm8960_ion_pdata },
 };
 #endif
 
-struct platform_device fmem_device = {
+struct platform_device msm8960_fmem_device = {
 	.name = "fmem",
 	.id = 1,
-	.dev = { .platform_data = &fmem_pdata },
+	.dev = { .platform_data = &msm8960_fmem_pdata },
 };
 
 static void __init adjust_mem_for_liquid(void)
@@ -746,9 +729,9 @@ static void __init reserve_ion_memory(void)
 		}
 	}
 
-	for (i = 0; i < ion_pdata.nr; ++i) {
+	for (i = 0; i < msm8960_ion_pdata.nr; ++i) {
 		struct ion_platform_heap *heap =
-						&(ion_pdata.heaps[i]);
+						&(msm8960_ion_pdata.heaps[i]);
 		int align = SZ_4K;
 		int iommu_map_all = 0;
 		int adjacent_mem_id = INVALID_HEAP_ID;
@@ -757,7 +740,7 @@ static void __init reserve_ion_memory(void)
 			int fixed_position = NOT_FIXED;
 			int mem_is_fmem = 0;
 
-			switch (heap->type) {
+			switch ((int)heap->type) {
 			case ION_HEAP_TYPE_CP:
 				mem_is_fmem = ((struct ion_cp_heap_pdata *)
 					heap->extra_data)->mem_is_fmem;
@@ -823,13 +806,13 @@ static void __init reserve_ion_memory(void)
 	fixed_middle_start = fixed_low_start + fixed_low_size;
 	fixed_high_start = fixed_middle_start + fixed_middle_size;
 
-	for (i = 0; i < ion_pdata.nr; ++i) {
-		struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+	for (i = 0; i < msm8960_ion_pdata.nr; ++i) {
+		struct ion_platform_heap *heap = &(msm8960_ion_pdata.heaps[i]);
 
 		if (heap->extra_data) {
 			int fixed_position = NOT_FIXED;
 
-			switch (heap->type) {
+			switch ((int) heap->type) {
 			case ION_HEAP_TYPE_CP:
 				fixed_position = ((struct ion_cp_heap_pdata *)
 					heap->extra_data)->fixed_position;
@@ -1953,7 +1936,7 @@ static void samsung_sys_class_init(void)
 };
 
 #if defined(CONFIG_NFC_PN544)
-static int pn544_conf_gpio(void)
+static void pn544_conf_gpio(void)
 {
 	pr_debug("pn544_conf_gpio\n");
 
@@ -1961,7 +1944,7 @@ static int pn544_conf_gpio(void)
 		GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
 	gpio_tlmm_config(GPIO_CFG(GPIO_NFC_SCL, 0, GPIO_CFG_INPUT,
 		GPIO_CFG_NO_PULL, GPIO_CFG_2MA), 1);
-	return 0;
+	return;
 }
 
 static int __init pn544_init(void)
@@ -2311,19 +2294,19 @@ static struct slim_device msm_slim_tabla = {
 	},
 };
 
-static struct tabla_pdata tabla20_platform_data = {
+static struct wcd9xxx_pdata tabla20_platform_data = {
 	.slimbus_slave_device = {
 		.name = "tabla-slave",
 		.e_addr = {0, 0, 0x60, 0, 0x17, 2},
 	},
 	.irq = MSM_GPIO_TO_INT(GPIO_CODEC_MAD_INTR),
 	.irq_base = TABLA_INTERRUPT_BASE,
-	.num_irqs = NR_TABLA_IRQS,
+	.num_irqs = NR_WCD9XXX_IRQS,
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(38),
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
-		.cfilt2_mv = 1800,
+		.cfilt2_mv = 2700,
 		.cfilt3_mv = 1800,
 		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
 		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
@@ -2678,7 +2661,13 @@ static void __init msm8960_map_io(void)
 
 static void __init msm8960_init_irq(void)
 {
-	msm_mpm_irq_extn_init();
+	struct msm_mpm_device_data *data = NULL;
+
+#ifdef CONFIG_MSM_MPM
+	data = &msm8960_mpm_dev_data;
+#endif
+
+	msm_mpm_irq_extn_init(data);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
 						(void *)MSM_QGIC_CPU_BASE);
 
@@ -4278,6 +4267,33 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 	},
 };
 
+static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
+	.levels = &msm_rpmrs_levels[0],
+	.num_levels = ARRAY_SIZE(msm_rpmrs_levels),
+	.vdd_mem_levels  = {
+		[MSM_RPMRS_VDD_MEM_RET_LOW]	= 750000,
+		[MSM_RPMRS_VDD_MEM_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_MEM_ACTIVE]	= 1050000,
+		[MSM_RPMRS_VDD_MEM_MAX]		= 1150000,
+	},
+	.vdd_dig_levels = {
+		[MSM_RPMRS_VDD_DIG_RET_LOW]	= 500000,
+		[MSM_RPMRS_VDD_DIG_RET_HIGH]	= 750000,
+		[MSM_RPMRS_VDD_DIG_ACTIVE]	= 950000,
+		[MSM_RPMRS_VDD_DIG_MAX]		= 1150000,
+	},
+	.vdd_mask = 0x7FFFFF,
+	.rpmrs_target_id = {
+		[MSM_RPMRS_ID_PXO_CLK]		= MSM_RPM_ID_PXO_CLK,
+		[MSM_RPMRS_ID_L2_CACHE_CTL]	= MSM_RPM_ID_LAST,
+		[MSM_RPMRS_ID_VDD_DIG_0]	= MSM_RPM_ID_PM8921_S3_0,
+		[MSM_RPMRS_ID_VDD_DIG_1]	= MSM_RPM_ID_PM8921_S3_1,
+		[MSM_RPMRS_ID_VDD_MEM_0]	= MSM_RPM_ID_PM8921_L24_0,
+		[MSM_RPMRS_ID_VDD_MEM_1]	= MSM_RPM_ID_PM8921_L24_1,
+		[MSM_RPMRS_ID_RPM_CTL]		= MSM_RPM_ID_RPM_CTL,
+	},
+};
+
 static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.mode = MSM_PM_BOOT_CONFIG_TZ,
 };
@@ -4674,10 +4690,11 @@ static void __init samsung_espresso_vzw_init(void)
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
 
-	msm_tsens_early_init(&msm_tsens_pdata);
-	BUG_ON(msm_rpm_init(&msm_rpm_data));
-	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
-		ARRAY_SIZE(msm_rpmrs_levels)));
+	platform_device_register(&msm_gpio_device);
+	msm8960_tsens_init();
+	msm_thermal_init(&msm_thermal_pdata);
+	BUG_ON(msm_rpm_init(&msm8960_rpm_data));
+	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
 
 	gpio_rev_init();
 	regulator_suppress_info_printing();

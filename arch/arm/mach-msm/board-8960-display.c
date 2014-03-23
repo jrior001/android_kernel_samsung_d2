@@ -91,7 +91,10 @@ static void set_mdp_clocks_for_wuxga(void);
 
 static int msm_fb_detect_panel(const char *name)
 {
-	if (machine_is_msm8960_liquid()) {
+	if (machine_is_msm8960_liquid() || machine_is_ESPRESSO_VZW()
+		|| machine_is_ESPRESSO_ATT() || machine_is_ESPRESSO10_VZW()
+		|| machine_is_ESPRESSO_SPR() || machine_is_ESPRESSO10_ATT()
+		|| machine_is_ESPRESSO10_SPR()) {
 		u32 ver = socinfo_get_platform_version();
 		if (SOCINFO_VERSION_MAJOR(ver) == 3) {
 			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WUXGA_PANEL_NAME,
@@ -227,6 +230,206 @@ static void mipi_dsi_panel_pwm_cfg(void)
 }
 
 static bool dsi_power_on;
+
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_WXGA_PT_PANEL)
+/*
+ * Macros to be used in espresso panel power function for
+ * controlling regulators.
+ */
+#define LVDS_REGULATOR_TUNE(regvar, conmdev, supply_name, optmodcurr) \
+	do { \
+		regvar = regulator_get(conmdev, #supply_name); \
+		if (IS_ERR(regvar)) { \
+			pr_err("[%s] could not get " \
+				#supply_name", rc = %ld\n", __func__,\
+				PTR_ERR(regvar)); \
+			return -ENODEV; \
+		} \
+		rc = regulator_set_optimum_mode(regvar, optmodcurr); \
+		if (rc < 0) { \
+			pr_err("[%s] set_optimum_mode high " \
+				#regvar" failed, rc=%d\n", __func__, rc); \
+			return -EINVAL; \
+		} \
+	} while (0);
+
+
+#define LVDS_REGULATOR_ENABLE(rpm_name, minvolt, maxvolt) \
+	do { \
+		rpm_vreg_set_voltage(rpm_name, RPM_VREG_VOTER3, \
+				minvolt, maxvolt, 1);\
+	} while (0);
+
+#define LVDS_REGULATOR_DISABLE(rpm_name) \
+	do { \
+		rpm_vreg_set_voltage(rpm_name, RPM_VREG_VOTER3, 0, 0, 1);\
+	} while (0);
+
+/**
+ * Espresso Board DSI power on/off
+ *
+ * @param on
+ *
+ * @return int
+ */
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+static int mipi_dsi_espresso_dsi_power(int on)
+{
+	static struct regulator *vreg_l2_1p2;
+	int rc;
+
+	if (!dsi_power_on) {
+		/* VDD_MIPI */
+		LVDS_REGULATOR_TUNE(vreg_l2_1p2,
+				&msm_mipi_dsi1_device.dev, dsi_vdda, 100000)
+
+		dsi_power_on = true;
+	}
+	if (on) {
+		pr_info("%s: power on sequence\n", __func__);
+
+		/* Enable power - DSI */
+		LVDS_REGULATOR_ENABLE(RPM_VREG_ID_PM8921_L2, 1200000, 1200000)
+
+	} else {
+		pr_info("%s: power off sequence\n", __func__);
+		/* Disable power - DSI */
+		LVDS_REGULATOR_DISABLE(RPM_VREG_ID_PM8921_L2)
+	}
+	return 0;
+}
+#endif
+
+#if !defined(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_WXGA_PT_PANEL)
+#ifdef CONFIG_FB_MSM_MIPI_PANEL_POWERON_LP11
+static int mipi_dsi_tc35reset_release(void)
+{
+	/* Perform LVDS_RST */
+	gpio_set_value_cansleep(GPIO_LVDS_RST, 1); /* disp enable */
+	return 0;
+}
+
+static bool espresso_panel_power_on;
+/**
+ * Espresso Board panel on/off
+ *
+ * @param on
+ *
+ * @return int
+ */
+static int mipi_dsi_espresso_panel_power(int on)
+{
+	static struct regulator *vreg_l18_lvds_1p2_vddc, *vreg_l16_lvds_3p3v;
+	static int led_backlight_reset, check_bootup_for_vreg_l16;
+	int rc;
+
+	pr_info("%s: on=%d\n", __func__, on);
+
+	if (!espresso_panel_power_on) {
+
+		/* Configure and Get GPIO LVDS_RST*/
+		gpio_tlmm_config(GPIO_CFG(GPIO_LVDS_RST, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),
+				GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_USB_I2C_SDA, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+				GPIO_CFG_DISABLE);
+
+		gpio_tlmm_config(GPIO_CFG(GPIO_USB_I2C_SCL, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+				GPIO_CFG_DISABLE);
+		led_backlight_reset = PM8921_GPIO_PM_TO_SYS(PMIC_GPIO_LCD_RST);
+		rc = gpio_request(led_backlight_reset, "led_backlight_reset");
+		if (rc) {
+			pr_err("request gpio 43 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
+		gpio_set_value_cansleep(GPIO_LVDS_RST, 0);
+		gpio_set_value_cansleep(led_backlight_reset, 0);
+
+		/*
+		 * Enabling and tuning Supplies related to processor
+		 * DSI.
+		 */
+		/*
+		 * Get the regulator reference for rest of the LVDS related
+		 * supplies and setting voltage requirement.
+		 */
+		/* VDD_MIPI + VDDC */
+		LVDS_REGULATOR_TUNE(vreg_l18_lvds_1p2_vddc,
+				&msm_mipi_dsi1_device.dev, lvds_1p2, 100000)
+		/* VDD_LVDS1_3 */
+		LVDS_REGULATOR_TUNE(vreg_l16_lvds_3p3v,
+				&msm_mipi_dsi1_device.dev, lvds_3p3, 100000)
+
+		espresso_panel_power_on = true;
+	}
+	if (on) {
+		gpio_set_value_cansleep(GPIO_LVDS_RST, 0);
+		pr_info("%s: power on sequence\n", __func__);
+
+		/*
+		 *  Enable power - Toshiba D2L
+		 */
+		/* VDD */
+		LVDS_REGULATOR_ENABLE(RPM_VREG_ID_PM8921_L18,
+				1200000, 1200000)
+		/* VCC_IO */
+		if (((machine_is_ESPRESSO_VZW() && (system_rev >= BOARD_REV04)))
+			|| machine_is_ESPRESSO10_VZW()
+			|| machine_is_ESPRESSO10_SPR()
+			|| machine_is_ESPRESSO10_ATT()
+			|| machine_is_ESPRESSO_SPR())
+			LVDS_REGULATOR_ENABLE(RPM_VREG_ID_PM8921_LVS6, 1, 1)
+		else
+			LVDS_REGULATOR_ENABLE(RPM_VREG_ID_PM8921_LVS5, 1, 1)
+		/* VDD_LVDS */
+		if (check_bootup_for_vreg_l16) {
+			LVDS_REGULATOR_ENABLE(RPM_VREG_ID_PM8921_L16,
+				3300000, 3300000)
+		}
+		check_bootup_for_vreg_l16 = 1;
+
+		/* Perform LVDS_RST */
+		gpio_set_value_cansleep(led_backlight_reset, 1);
+
+	} else {
+		pr_info("%s: power off sequence\n", __func__);
+
+		/* Assert reset */
+		gpio_set_value_cansleep(GPIO_LVDS_RST, 0);
+		mdelay(20);
+
+		/* Disable power - D2L */
+		LVDS_REGULATOR_DISABLE(RPM_VREG_ID_PM8921_L18)
+		/* Disable LCD Power */
+		LVDS_REGULATOR_DISABLE(RPM_VREG_ID_PM8921_L16)
+		if (((machine_is_ESPRESSO_VZW() && (system_rev >= BOARD_REV04)))
+				|| machine_is_ESPRESSO10_SPR()
+				|| machine_is_ESPRESSO10_VZW()
+				|| machine_is_ESPRESSO10_ATT()
+				|| machine_is_ESPRESSO_SPR())
+			LVDS_REGULATOR_DISABLE(RPM_VREG_ID_PM8921_LVS6)
+		else
+			LVDS_REGULATOR_DISABLE(RPM_VREG_ID_PM8921_LVS5)
+
+		gpio_set_value_cansleep(led_backlight_reset, 0);
+	}
+	return 0;
+}
+#endif /* CONFIG_FB_MSM_MIPI_PANEL_POWERON_LP11 */
+#endif
+
+#undef LVDS_REGULATOR_TUNE
+/*
+#undef LVDS_REGULATOR_ENABLE
+#undef LVDS_REGULATOR_DISABLE
+*/
+#endif /* CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL */
 
 /**
  * LiQUID panel on/off
@@ -477,6 +680,16 @@ static int mipi_dsi_panel_power(int on)
 
 	if (machine_is_msm8960_liquid())
 		ret = mipi_dsi_liquid_panel_power(on);
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	else if (machine_is_ESPRESSO_VZW()
+			|| machine_is_ESPRESSO_SPR()
+			|| machine_is_ESPRESSO_ATT()
+			|| machine_is_ESPRESSO10_SPR()
+			|| machine_is_ESPRESSO10_VZW()
+			|| machine_is_ESPRESSO10_ATT())
+		ret = mipi_dsi_espresso_dsi_power(on);
+#endif
 	else
 		ret = mipi_dsi_cdp_panel_power(on);
 
@@ -486,6 +699,10 @@ static int mipi_dsi_panel_power(int on)
 static struct mipi_dsi_platform_data mipi_dsi_pdata = {
 	.vsync_gpio = MDP_VSYNC_GPIO,
 	.dsi_power_save = mipi_dsi_panel_power,
+#ifdef CONFIG_FB_MSM_MIPI_PANEL_POWERON_LP11
+	.dsi_client_power_save = mipi_dsi_espresso_panel_power,
+	.dsi_client_reset = mipi_dsi_tc35reset_release,
+#endif /* CONFIG_FB_MSM_MIPI_PANEL_POWERON_LP11 */
 	.splash_is_enabled = mipi_dsi_splash_is_enabled,
 };
 
@@ -632,8 +849,14 @@ static struct platform_device mipi_dsi_toshiba_panel_device = {
 
 #define FPGA_3D_GPIO_CONFIG_ADDR	0xB5
 static int dsi2lvds_gpio[4] = {
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	1,/* Backlight PWM-ID=1 for PMIC-GPIO#25 */
+	0x0000	/* GPIOs not connected in espresso*/
+#else
 	0,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
 	0x1F08, /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
+#endif
 	GPIO_LIQUID_EXPANDER_BASE+6,	/* TN Enable */
 	GPIO_LIQUID_EXPANDER_BASE+7,	/* TN Mode */
 	};

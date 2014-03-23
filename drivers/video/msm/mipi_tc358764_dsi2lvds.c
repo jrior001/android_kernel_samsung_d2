@@ -188,11 +188,54 @@
 #define DEBUG01		0x05A4	/* LVDS Data */
 
 /* PWM */
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL)
+#define PWM_FREQ_HZ	(6250)	/* 33 KHZ */
+#define PWM_LEVEL 160
+#elif defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+#define PWM_FREQ_HZ	(1000)	/* 33 KHZ */
+#define PWM_LEVEL 1000
+#else
 static u32 d2l_pwm_freq_hz = (3.921*1000);
-
 #define PWM_FREQ_HZ	(d2l_pwm_freq_hz)
+#endif
+
 #define PWM_PERIOD_USEC (USEC_PER_SEC / PWM_FREQ_HZ)
 #define PWM_DUTY_LEVEL (PWM_PERIOD_USEC / PWM_LEVEL)
+
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL)
+#define PWM_DUTY_MAX   PWM_DUTY_LEVEL
+
+#define DUTY_DIM 3
+#define DUTY_MIN 5
+#define DUTY_25  13
+#define DUTY_DEFAULT 52
+#define DUTY_MAX 151
+
+/* Backlight levels */
+#define BRIGHTNESS_OFF   0
+#define BRIGHTNESS_DIM   20
+#define BRIGHTNESS_MIN   30
+#define BRIGHTNESS_25   85
+#define BRIGHTNESS_DEFAULT  135
+#define BRIGHTNESS_MAX   255
+#elif defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+#define PWM_DUTY_MAX   PWM_DUTY_LEVEL
+
+#define DUTY_DIM 23
+#define DUTY_MIN 33
+#define DUTY_25  80
+#define DUTY_DEFAULT 475
+#define DUTY_MAX 813
+
+
+/* Backlight levels */
+#define BRIGHTNESS_OFF   0
+#define BRIGHTNESS_DIM   20
+#define BRIGHTNESS_MIN   30
+#define BRIGHTNESS_25   86
+#define BRIGHTNESS_DEFAULT  140
+#define BRIGHTNESS_MAX   255
+#endif
 
 #define CMD_DELAY 100
 #define DSI_MAX_LANES 4
@@ -216,22 +259,39 @@ static struct dsi_buf d2l_tx_buf;
 static struct dsi_buf d2l_rx_buf;
 static int led_pwm;
 static struct pwm_device *bl_pwm;
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static struct pwm_device *tn_pwm;
+#endif
+static int initial_powerseq;
+#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+static int boot_first;
+#endif
 static int bl_level;
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
+static struct delayed_work  det_work;
+#endif
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static u32 d2l_gpio_out_mask;
 static u32 d2l_gpio_out_val;
 static u32 d2l_3d_gpio_enable;
 static u32 d2l_3d_gpio_mode;
 static int d2l_enable_3d;
+#endif
 static struct i2c_client *d2l_i2c_client;
 static struct i2c_driver d2l_i2c_slave_driver;
 
 static int mipi_d2l_init(void);
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
-			      bool enable, bool mode);
+			bool enable, bool mode);
+#endif
 static u32 d2l_i2c_read_reg(struct i2c_client *client, u16 reg);
 static u32 d2l_i2c_write_reg(struct i2c_client *client, u16 reg, u32 val);
-
+static struct dsi2lvds_driver_data ddd;
 /**
  * Read a bridge register
  *
@@ -410,6 +470,65 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 	pr_debug("%s.vpctrl=0x%x.\n", __func__, vpctrl);
 	pr_debug("%s.lvcfg=0x%x.\n", __func__, lvcfg);
 
+
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
+	/* VESA format instead of JEIDA format for RGB888 */
+	mipi_d2l_write_reg(mfd, LVMX0003, 0x03020100);
+	mipi_d2l_write_reg(mfd, LVMX0407, 0x08050704);
+	mipi_d2l_write_reg(mfd, LVMX0811, 0x0F0E0A09);
+	mipi_d2l_write_reg(mfd, LVMX1215, 0x100D0C0B);
+	mipi_d2l_write_reg(mfd, LVMX1619, 0x12111716);
+	mipi_d2l_write_reg(mfd, LVMX2023, 0x1B151413);
+	mipi_d2l_write_reg(mfd, LVMX2427, 0x061A1918);
+
+	mipi_d2l_write_reg(mfd, PPI_TX_RX_TA, 0x00030005); /* BTA */
+	mipi_d2l_write_reg(mfd, PPI_LPTXTIMECNT, 0x00000003);
+	mipi_d2l_write_reg(mfd, PPI_D0S_CLRSIPOCOUNT, 0x00000002);
+	mipi_d2l_write_reg(mfd, PPI_D1S_CLRSIPOCOUNT, 0x00000002);
+	mipi_d2l_write_reg(mfd, PPI_D2S_CLRSIPOCOUNT, 0x00000002);
+	mipi_d2l_write_reg(mfd, PPI_D3S_CLRSIPOCOUNT, 0x00000002);
+	mipi_d2l_write_reg(mfd, PPI_LANEENABLE, 0x0000001F);
+	mipi_d2l_write_reg(mfd, DSI_LANEENABLE, 0x0000001F);
+	mipi_d2l_write_reg(mfd, PPI_STARTPPI, 0x00000001);
+	mipi_d2l_write_reg(mfd, DSI_STARTDSI, 0x00000001);
+
+	mipi_d2l_write_reg(mfd, VPCTRL, 0x03F00120); /* RGB888 + Event mode */
+#if defined(CONFIG_MIPI_CLK_414)
+	mipi_d2l_write_reg(mfd, HTIM1, 0x00200002);
+	mipi_d2l_write_reg(mfd, HTIM2, 0x00200500);
+	mipi_d2l_write_reg(mfd, VTIM1, 0x00180002);
+	mipi_d2l_write_reg(mfd, VTIM2, 0x00180320);
+#elif defined(CONFIG_MIPI_CLK_451)
+	mipi_d2l_write_reg(mfd, HTIM1, 0x00300002);
+	mipi_d2l_write_reg(mfd, HTIM2, 0x00300500);
+	mipi_d2l_write_reg(mfd, VTIM1, 0x00200002);
+	mipi_d2l_write_reg(mfd, VTIM2, 0x00400320);
+#else /* espresso7 */
+	mipi_d2l_write_reg(mfd, HTIM1, 0x00140114);
+	mipi_d2l_write_reg(mfd, HTIM2, 0x00340400);
+	mipi_d2l_write_reg(mfd, VTIM1, 0x0022000A);
+	mipi_d2l_write_reg(mfd, VTIM1, 0x00150258);
+#endif
+	mipi_d2l_write_reg(mfd, VFUEN, 0x00000001);
+#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
+#if defined(CONFIG_MIPI_LVDS_REDUCE_MODE)
+	mipi_d2l_write_reg(mfd, LVPHY0, 0x00448406);
+	udelay(20);
+	mipi_d2l_write_reg(mfd, LVPHY0, 0x00048406);
+#else /* espresso10 spr */
+	mipi_d2l_write_reg(mfd, LVPHY0, 0x00448006);
+	udelay(20);
+	mipi_d2l_write_reg(mfd, LVPHY0, 0x00048006);
+#endif
+	mipi_d2l_write_reg(mfd, LVCFG, 0x00000001);
+#else /* espresso 7 */
+	mipi_d2l_write_reg(mfd, LVPHY0, 0x0044802D);
+	udelay(20);
+	mipi_d2l_write_reg(mfd, LVPHY0, 0x0004802D);
+	mipi_d2l_write_reg(mfd, LVCFG, 0x00000101);
+#endif
+#else
 	mipi_d2l_write_reg(mfd, SYSRST, 0xFF);
 	msleep(30);
 
@@ -442,7 +561,7 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 	mipi_d2l_write_reg(mfd, VTIM2, vtime2);
 	mipi_d2l_write_reg(mfd, VFUEN, 0x00000001);
 	mipi_d2l_write_reg(mfd, LVCFG, lvcfg); /* Enables LVDS tx */
-
+#endif /* CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT */
 	return 0;
 }
 
@@ -460,11 +579,20 @@ static int mipi_d2l_set_backlight_level(struct pwm_device *pwm, int level)
 
 	pr_debug("%s: level=%d.\n", __func__, level);
 
-	if ((pwm == NULL) || (level > PWM_LEVEL) || (level < 0)) {
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	if ((pwm == NULL) || (level > BRIGHTNESS_MAX) || (level < 0)) {
 		pr_err("%s.pwm=NULL.\n", __func__);
 		return -EINVAL;
 	}
 
+	level = scale_pwm_dutycycle(level);
+#else
+	if ((pwm == NULL) || (level > PWM_LEVEL) || (level < 0)) {
+		pr_err("%s.pwm=NULL.\n", __func__);
+		return -EINVAL;
+	}
+#endif
 	ret = pwm_config(pwm, PWM_DUTY_LEVEL * level, PWM_PERIOD_USEC);
 	if (ret) {
 		pr_err("%s: pwm_config() failed err=%d.\n", __func__, ret);
@@ -481,6 +609,8 @@ static int mipi_d2l_set_backlight_level(struct pwm_device *pwm, int level)
 	return 0;
 }
 
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 /**
  * Set TN CLK.
  *
@@ -510,7 +640,22 @@ static int mipi_d2l_set_tn_clk(struct pwm_device *pwm, u32 usec)
 
 	return 0;
 }
+#endif
 
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
+static void blenable_work_func(struct work_struct *work)
+{
+	int ret = 0;
+	/* Set backlight via PWM */
+	if (bl_pwm) {
+		ret = mipi_d2l_set_backlight_level(bl_pwm, bl_level);
+		if (ret)
+			pr_err("%s.mipi_d2l_set_backlight_level.ret=%d",
+			       __func__, ret);
+	}
+}
+#endif
 /**
  * LCD ON.
  *
@@ -530,7 +675,9 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 	pr_info("%s.\n", __func__);
 
 	/* wait for valid clock before sending data over DSI or I2C. */
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL)
 	msleep(30);
+#endif
 
 	mfd = platform_get_drvdata(pdev);
 	d2l_mfd = mfd;
@@ -551,11 +698,20 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 	ret = mipi_d2l_dsi_init_sequence(mfd);
 	if (ret)
 		return ret;
-
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 	mipi_d2l_write_reg(mfd, GPIOC, d2l_gpio_out_mask);
 	/* Set gpio#4=U/D=0, gpio#3=L/R=1 , gpio#2,1=CABC=0, gpio#0=NA. */
 	mipi_d2l_write_reg(mfd, GPIOO, d2l_gpio_out_val);
-
+#endif
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	if ((bl_level == 0) && (!initial_powerseq) || poweroff_charging) {
+		bl_level = BRIGHTNESS_DEFAULT ; /* Default ON value */
+		INIT_DELAYED_WORK(&det_work, blenable_work_func);
+		schedule_delayed_work(&det_work, msecs_to_jiffies(250));
+	}
+#else
 	d2l_pwm_freq_hz = (3.921*1000);
 
 	if (bl_level == 0)
@@ -568,16 +724,22 @@ static int mipi_d2l_lcd_on(struct platform_device *pdev)
 			pr_err("%s.mipi_d2l_set_backlight_level.ret=%d",
 			       __func__, ret);
 	}
+#endif
 
 	mipi_d2l_read_status(mfd);
 
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 	mipi_d2l_enable_3d(mfd, false, false);
+#endif
 
 	/* Add I2C driver only after DSI-CLK is running */
 	if (d2l_i2c_client == NULL)
 		i2c_add_driver(&d2l_i2c_slave_driver);
 
 	pr_info("%s.ret=%d.\n", __func__, ret);
+	/* Set power on flag */
+	initial_powerseq = 1;
 
 	return ret;
 }
@@ -606,7 +768,14 @@ static int mipi_d2l_lcd_off(struct platform_device *pdev)
 	ret = mipi_d2l_set_backlight_level(bl_pwm, 1);
 
 	pr_info("%s.ret=%d.\n", __func__, ret);
-
+#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	/*
+	 * Added delay for achieiving T4 timing between backlight and LCD
+	 * power off as per panel specification.
+	 */
+	mdelay(200);
+	boot_first = 1;
+#endif
 	return ret;
 }
 
@@ -724,8 +893,10 @@ static struct i2c_driver d2l_i2c_slave_driver = {
 	.id_table = d2l_i2c_id,
 };
 
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
-			      bool enable, bool mode)
+					      bool enable, bool mode)
 {
 	u32 tn_usec = 1000000 / 66; /* 66 HZ */
 
@@ -817,6 +988,23 @@ err_device_create_file:
 
 	return ret;
 }
+#endif
+
+#if defined(CONFIG_LCD_CLASS_DEVICE)
+static ssize_t dsi2lvds_tc358764_lcdtype_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	char temp[30];
+	pr_info("%s\n", __func__);
+	snprintf(temp, strnlen(ddd.dpd->panel_name, 30) + 1,
+						ddd.dpd->panel_name);
+	strncat(buf, temp, 30);
+	return strnlen(buf, 30);
+}
+static struct lcd_ops dsi2lvds_tc358764_disp_props;
+
+static DEVICE_ATTR(lcd_type, S_IRUGO, dsi2lvds_tc358764_lcdtype_show, NULL);
+#endif
 
 /**
  * Probe for device.
@@ -835,6 +1023,10 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct msm_panel_info *pinfo = NULL;
 
+#if defined(CONFIG_LCD_CLASS_DEVICE)
+	struct lcd_device *lcd_device;
+#endif
+
 	pr_debug("%s.id=%d.\n", __func__, pdev->id);
 
 	if (pdev->id == 0) {
@@ -846,11 +1038,13 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 		}
 
 		led_pwm = d2l_common_pdata->gpio_num[0];
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 		d2l_gpio_out_mask = d2l_common_pdata->gpio_num[1] >> 8;
 		d2l_gpio_out_val = d2l_common_pdata->gpio_num[1] & 0xFF;
 		d2l_3d_gpio_enable = d2l_common_pdata->gpio_num[2];
 		d2l_3d_gpio_mode = d2l_common_pdata->gpio_num[3];
-
+#endif
 		mipi_dsi_buf_alloc(&d2l_tx_buf, DSI_BUF_SIZE);
 		mipi_dsi_buf_alloc(&d2l_rx_buf, DSI_BUF_SIZE);
 
@@ -878,7 +1072,8 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 	} else {
 		pr_err("%s. led_pwm is invalid.\n", __func__);
 	}
-
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 	tn_pwm = pwm_request(1, "3D_TN_clk");
 	if (tn_pwm == NULL || IS_ERR(tn_pwm)) {
 		pr_err("%s pwm_request() failed.id=%d.tn_pwm=%d.\n",
@@ -889,7 +1084,7 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 		pr_debug("%s.pwm_request() ok.pwm-id=%d.\n", __func__, 1);
 
 	}
-
+#endif
 	pinfo = pdev->dev.platform_data;
 
 	if (pinfo == NULL) {
@@ -903,8 +1098,29 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 
 	msm_fb_add_device(pdev);
 
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 	if (pinfo->is_3d_panel)
 		mipi_dsi_3d_barrier_sysfs_register(&(pdev->dev));
+#endif
+
+#if defined(CONFIG_LCD_CLASS_DEVICE)
+	lcd_device = lcd_device_register("panel", &pdev->dev, NULL,
+					&dsi2lvds_tc358764_disp_props);
+
+	if (IS_ERR(lcd_device)) {
+		ret = PTR_ERR(lcd_device);
+		printk(KERN_ERR "lcd : failed to register device\n");
+		return ret;
+	}
+
+	ret = sysfs_create_file(&lcd_device->dev.kobj,
+					&dev_attr_lcd_type.attr);
+	if (ret) {
+		pr_info("sysfs create fail-%s\n",
+				dev_attr_lcd_type.attr.name);
+	}
+#endif
 
 	return ret;
 }

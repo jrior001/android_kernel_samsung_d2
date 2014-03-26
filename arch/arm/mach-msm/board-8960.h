@@ -95,6 +95,18 @@ enum {
 
 
 
+extern int samsung_cmc624_on(int enable);
+extern int samsung_has_cmc624(void);
+extern int gpio_rev(unsigned int);
+extern void msm_otg_set_cable_state(int);
+extern void msm_otg_set_vbus_state(int);
+extern void msm_otg_set_charging_state(bool enable);
+extern void msm_otg_set_id_state(bool enable);
+extern void msm_otg_set_smartdock_state(bool enable);
+#ifdef CONFIG_CAMERON_HEALTH
+extern bool is_cameron_health_connected;
+extern void msm_otg_set_cameronhealth_state(bool enable);
+#endif
 extern struct sx150x_platform_data msm8960_sx150x_data[];
 extern struct msm_camera_board_info msm8960_camera_board_info;
 

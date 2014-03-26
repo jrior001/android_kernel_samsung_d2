@@ -22,11 +22,16 @@
 #include <mach/msm_memtypes.h>
 #include <mach/board.h>
 #include <mach/gpiomux.h>
+#include <mach/msm8960-gpio.h>
 #include <mach/ion.h>
 #include <mach/socinfo.h>
+#include <asm/system_info.h>
 
 #include "devices.h"
 #include "board-8960.h"
+#include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
+#include "devices-msm8x60.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_PRIM_BUF_SIZE \
@@ -852,13 +857,13 @@ static int dsi2lvds_gpio[4] = {
 #if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
 	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
 	1,/* Backlight PWM-ID=1 for PMIC-GPIO#25 */
-	0x0000	/* GPIOs not connected in espresso*/
+	0x0000,	/* GPIOs not connected in espresso*/
 #else
 	0,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
 	0x1F08, /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
 #endif
 	GPIO_LIQUID_EXPANDER_BASE+6,	/* TN Enable */
-	GPIO_LIQUID_EXPANDER_BASE+7,	/* TN Mode */
+	GPIO_LIQUID_EXPANDER_BASE+7	/* TN Mode */
 	};
 
 static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {

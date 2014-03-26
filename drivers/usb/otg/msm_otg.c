@@ -3211,6 +3211,42 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 	return ret;
 }
 
+void msm_otg_set_cable_state(int type)
+{
+	struct msm_otg *motg = the_msm_otg;
+
+	switch (type) {
+	case POWER_SUPPLY_TYPE_USB:
+		pr_info("%s, POWER_SUPPLY_TYPE_USB\n", __func__);
+		if (motg->chg_state != USB_CHG_STATE_DETECTED) {
+			cancel_delayed_work_sync(&motg->chg_work);
+			motg->chg_type = USB_SDP_CHARGER;
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+			if (!test_bit(B_SESS_VLD, &motg->inputs))
+				set_bit(B_SESS_VLD, &motg->inputs);
+			schedule_work(&motg->sm_work);
+		}
+		break;
+	case POWER_SUPPLY_TYPE_MAINS:
+		pr_info("%s, POWER_SUPPLY_TYPE_MAINS\n", __func__);
+		if (motg->chg_state != USB_CHG_STATE_DETECTED) {
+			cancel_delayed_work_sync(&motg->chg_work);
+			motg->chg_type = USB_DCP_CHARGER;
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+			if (!test_bit(B_SESS_VLD, &motg->inputs))
+				set_bit(B_SESS_VLD, &motg->inputs);
+			schedule_work(&motg->sm_work);
+		}
+		break;
+	case POWER_SUPPLY_TYPE_BATTERY:
+		pr_info("%s, POWER_SUPPLY_TYPE_BATTERY\n", __func__);
+		motg->chg_state = USB_CHG_STATE_UNDEFINED;
+		motg->chg_type = USB_INVALID_CHARGER;
+		break;
+	}
+}
+EXPORT_SYMBOL_GPL(msm_otg_set_cable_state);
+
 #ifndef CONFIG_USB_MSM_USE_POWER_SUPPLY_API
 void msm_otg_set_vbus_state(int online)
 {
@@ -3372,6 +3408,123 @@ static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_USB_HOST_NOTIFY
+static void msm_otg_sm_work_timer_func(unsigned long data)
+{
+	struct msm_otg *motg = (struct msm_otg *) data;
+	struct otg_transceiver *otg = &motg->otg;
+
+	if (atomic_read(&motg->in_lpm)) {
+		dev_info(motg->otg.dev, "sm_work_timer: in lpm\n");
+		return;
+	}
+
+	if (otg->state > OTG_STATE_B_IDLE) {
+		dev_info(motg->otg.dev, "sm_work_timer: on working\n");
+		return;
+	}
+
+	if (!schedule_work(&motg->sm_work)) {
+		dev_info(motg->otg.dev, "sm_work_timer: pending\n");
+		mod_timer(&motg->sm_work_timer, SM_WORK_TIMER_FREQ);
+	}
+}
+
+static void msm_otg_power_work(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of(w, struct msm_otg, otg_power_work);
+	int otg_power = gpio_get_value_cansleep(motg->pdata->otg_power_gpio);
+	dev_info(motg->otg.dev, "%s, ID=%d, otg_power=%d\n",
+		__func__, test_bit(ID, &motg->inputs), otg_power);
+
+	if (!test_bit(ID, &motg->inputs)) {
+		if (otg_power) {
+			motg->ndev.booster = NOTIFY_POWER_ON;
+			motg->notify_state = ACC_POWER_ON;
+			schedule_work(&motg->notify_work);
+		} else {
+			motg->ndev.booster = NOTIFY_POWER_OFF;
+			motg->notify_state = ACC_POWER_OVER_CURRENT;
+			schedule_work(&motg->notify_work);
+		}
+	} else {
+		if (!otg_power) {
+			if (motg->ndev.mode == NOTIFY_HOST_MODE ||
+				motg->notify_state == ACC_POWER_ON) {
+				motg->ndev.booster = NOTIFY_POWER_OFF;
+				motg->notify_state = ACC_POWER_OFF;
+				schedule_work(&motg->notify_work);
+			}
+		}
+	}
+}
+
+static void msm_otg_late_power_work(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of((struct delayed_work *)w,
+				struct msm_otg, late_power_work);
+
+	dev_info(motg->otg.dev, "%s, ID=%d, booster=%d\n",
+		__func__, test_bit(ID, &motg->inputs), motg->ndev.booster);
+
+	if (!test_bit(ID, &motg->inputs) &&
+		(motg->ndev.booster == NOTIFY_POWER_OFF)) {
+		msm_hsusb_vbus_power(motg, 1);
+	}
+}
+
+static irqreturn_t msm_pmic_otg_power_irq(int irq, void *data)
+{
+	struct msm_otg *motg = data;
+
+	schedule_work(&motg->otg_power_work);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t msm_pmic_vbus_irq(int irq, void *data)
+{
+	struct msm_otg *motg = data;
+	struct otg_transceiver *otg = &motg->otg;
+	/* vbus_in=1 is empty vbus, vbus_in=0 is drive vbus */
+	int vbus_in = gpio_get_value_cansleep(motg->pdata->vbus_gpio);
+	dev_info(motg->otg.dev, "%s, vbus=%d, motg->in_lpm=%d\n",
+		__func__, !vbus_in, atomic_read(&motg->in_lpm));
+
+
+	if (!atomic_read(&motg->in_lpm))
+		return IRQ_HANDLED;
+
+	if (!vbus_in) {
+		dev_info(motg->otg.dev, "GPIO : BSV set in LPM\n");
+		pm_runtime_resume(otg->dev);
+	}
+
+	return IRQ_HANDLED;
+}
+#endif
+
+#ifdef CONFIG_CAMERON_HEALTH
+void msm_otg_set_cameronhealth_state(bool enable)
+{
+	struct msm_otg *motg = the_msm_otg;
+
+	if (!enable) {
+		pr_info("CAMERON_HEALTH : ID set\n");
+		set_bit(ID, &motg->inputs);
+	} else {
+		pr_info("CAMERON_HEALTH : ID clear\n");
+		clear_bit(ID, &motg->inputs);
+	}
+
+	if (test_bit(B_SESS_VLD, &motg->inputs))
+		clear_bit(B_SESS_VLD, &motg->inputs);
+
+	schedule_work(&motg->sm_work);
+}
+EXPORT_SYMBOL_GPL(msm_otg_set_cameronhealth_state);
+#endif
 
 static int msm_otg_mode_show(struct seq_file *s, void *unused)
 {

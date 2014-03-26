@@ -20,10 +20,12 @@
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-sec-charger.h>
 
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/msm8960-gpio.h>
+#include <asm/system_info.h>
 
 #include "devices-msm8x60.h"
 #include "board-8960.h"
@@ -43,6 +45,40 @@
 bool is_cameron_health_connected;
 EXPORT_SYMBOL(is_cameron_health_connected);
 #endif
+
+static unsigned int sec_bat_recovery_mode;
+/* Note, the following types must be synced to those
+defined in power_supply.h */
+
+static sec_charging_current_t charging_current_table[] = {
+	{0,	0,	0,	0}, /* UNKNOWN */
+	{0,	0,	0,	0}, /* BATTERY */
+	{0,	0,	0,	0}, /* UPS */
+#ifdef CONFIG_MACH_EXPRESS
+	{1000,	1050,	200,	0}, /* MAINS */
+#else
+	{1000,	950,	200,	0}, /* MAINS */
+#endif
+	{1000,	500,	200,	0}, /* USB */
+	{1000,	500,	200,	0}, /* USB_DCP */
+	{1000,	500,	200,	0}, /* USB_CDP */
+	{1000,	500,	200,	0}, /* USB ACA */
+	{0,	0,	0,	0}, /* BMS */
+	{1000,	700,	200,	0}, /* MISC */
+#ifdef CONFIG_MACH_EXPRESS
+	{1000,	1050,	200,	0}, /* CARDOCK */
+	{1000,	1050,	200,	0}, /* UARTOFF */
+#else
+	{1000,	950,	200,	0}, /* CARDOCK */
+	{1000,	950,	200,	0}, /* UARTOFF */
+#endif
+	{0,	0,	0,	0}, /* WIRELESS/DUMMY */
+#ifdef CONFIG_MACH_EXPRESS
+	{1000,	-500,	0,	0}, /* OTG */
+#else
+	{0,	0,	0,	0}, /* OTG */
+#endif
+};
 
 static int msm_otg_pmic_gpio_config(int gpio, int direction,
 			int pullup, char *gpio_id, int req_sel)
@@ -425,20 +461,6 @@ static sec_bat_adc_region_t cable_adc_value_table[] = {
 	{0,	0},
 };
 
-static sec_charging_current_t charging_current_table[] = {
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-	{1500,	1500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	1500,	200,	0},
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-};
 #else
 /* ADC region should be exclusive */
 static sec_bat_adc_region_t cable_adc_value_table[] = {
@@ -454,21 +476,6 @@ static sec_bat_adc_region_t cable_adc_value_table[] = {
 	{0,	0},
 	{0,	0},
 	{0,	0},
-};
-
-static sec_charging_current_t charging_current_table[] = {
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-	{1500,	1500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	500,	200,	0},
-	{1500,	700,	200,	0},
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
-	{0,	0,	0,	0},
 };
 #endif
 
@@ -623,6 +630,7 @@ static sec_battery_platform_data_t sec_battery_pdata = {
 	.temp_low_recovery_lpm = -3,
 
 	.full_check_type = SEC_BATTERY_FULLCHARGED_ADC,
+	.full_check_type_2nd = SEC_BATTERY_FULLCHARGED_NONE,
 	.full_check_count = 4,
 	.full_check_adc_1st = 26500,
 	.full_check_adc_2nd = 25800,

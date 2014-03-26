@@ -2077,12 +2077,12 @@ static long msm_ioctl_server(struct file *fp, unsigned int cmd,
 		sensor_native_control((void __user *)arg);
 		rc = 0;
 		break;
-
+#if !defined(CONFIG_MACH_ESPRESSO_VZW)
 	case MSM_CAM_IOCTL_V4L2_EVT_NATIVE_FRONT_CMD:
 		sensor_native_control_front((void __user *)arg);
 		rc = 0;
 		break;
-
+#endif
 	default:
 		break;
 	}

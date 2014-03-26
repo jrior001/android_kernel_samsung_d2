@@ -21,7 +21,10 @@
 #include <media/msm_camera.h>
 #include <media/v4l2-subdev.h>
 #include <mach/gpio.h>
+#include <asm/gpio.h>
 #include <mach/camera.h>
+#include <mach/espresso_vzw-gpio.h>
+#include <linux/module.h>
 
 #include <asm/mach-types.h>
 #include <mach/vreg.h>
@@ -42,6 +45,8 @@
 #include "msm.h"
 #include "msm_ispif.h"
 #include "msm_sensor.h"
+
+extern unsigned int system_rev;
 
 /*#define CONFIG_LOAD_FILE */
 

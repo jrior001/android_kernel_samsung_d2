@@ -34,6 +34,7 @@
 #include <mach/msm8960-gpio.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <asm/system_info.h>
+#include <linux/android_alarm.h>
 
 #define FG_T_SOC		0
 #define FG_T_VCELL		1

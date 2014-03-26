@@ -22,10 +22,12 @@
 #include <media/v4l2-subdev.h>
 #include <mach/gpio.h>
 #include <mach/camera.h>
-
+#include <mach/espresso_vzw-gpio.h>
+#include <linux/module.h>
 #include <asm/mach-types.h>
 #include <mach/vreg.h>
 #include <linux/io.h>
+#include <asm/gpio.h>
 
 #include "msm.h"
 #include "sr030pc50.h"

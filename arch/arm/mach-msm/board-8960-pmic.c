@@ -125,7 +125,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 #endif
 	PM8XXX_GPIO_OUTPUT(42, 0),                      /* USB 5V reg enable */
 	/* TABLA CODEC RESET */
-	PM8XXX_GPIO_OUTPUT_STRENGTH(34, 0, PM_GPIO_STRENGTH_MED)
+	PM8XXX_GPIO_OUTPUT_STRENGTH(34, 0, PM_GPIO_STRENGTH_MED),
 #if defined(CONFIG_CHARGER_SMB347)
 	PM8XXX_GPIO_INPUT(17, PM_GPIO_PULL_UP_30), /* CHG_STAT */
 #else

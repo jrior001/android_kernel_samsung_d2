@@ -21,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <mach/msm8960-gpio.h>
 #include "board-8960.h"
+#include <asm/system_info.h>
 
 void usb_switch_vcc_on(bool onoff)
 {

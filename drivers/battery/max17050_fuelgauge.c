@@ -1631,6 +1631,137 @@ void fg_check_vf_fullcap_range(struct i2c_client *client)
 
 }
 
+int fg_check_cap_corruption(struct i2c_client *client)
+{
+	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
+	int vfsoc = fg_read_vfsoc(client);
+	int repsoc = fg_read_soc(client);
+	int mixcap = fg_read_register(client, REMCAP_MIX_REG);
+	int vfocv = fg_read_register(client, VFOCV_REG);
+	int remcap = fg_read_register(client, REMCAP_REP_REG);
+	int fullcapacity = fg_read_register(client, FULLCAP_REG);
+	int vffullcapacity = fg_read_register(client, FULLCAP_NOM_REG);
+	u32 temp, temp2, new_vfocv, pr_vfocv;
+	int ret = 0;
+
+	/* If usgin Jig or low batt compensation flag is set,
+	 * then skip checking.
+	 */
+	if (fuelgauge->pdata->check_jig_status()) {
+		pr_info("%s : Return by Using Jig(%d)\n", __func__,
+			fuelgauge->pdata->check_jig_status());
+		return 0;
+	}
+
+	if (vfsoc < 0 || repsoc < 0 || mixcap < 0 || vfocv < 0 ||
+		remcap < 0 || fullcapacity < 0 || vffullcapacity < 0)
+		return 0;
+
+	/* Check full charge learning case. */
+	if (((vfsoc >= 90) && ((remcap >= (fullcapacity * 995 / 1000)) &&
+		(remcap <= (fullcapacity * 1005 / 1000)))) ||
+		fuelgauge->info.low_batt_comp_flag ||
+		fuelgauge->info.soc_restart_flag) {
+		pr_info("%s : RemCap(%d), FullCap(%d), SOC(%d), ",
+					__func__, (remcap/2),
+					(fullcapacity/2), repsoc);
+		pr_info("low_batt_comp_flag(%d), soc_restart_flag(%d)\n",
+					fuelgauge->info.low_batt_comp_flag,
+					fuelgauge->info.soc_restart_flag);
+		fuelgauge->info.previous_repsoc = repsoc;
+		fuelgauge->info.previous_remcap = remcap;
+		fuelgauge->info.previous_fullcapacity = fullcapacity;
+		if (fuelgauge->info.soc_restart_flag)
+			fuelgauge->info.soc_restart_flag = 0;
+
+		ret = 1;
+	}
+
+	/* ocv calculation for print */
+	temp = (vfocv & 0xFFF) * 78125;
+	pr_vfocv = temp / 1000000;
+
+	temp = ((vfocv & 0xF000) >> 4) * 78125;
+	temp2 = temp / 1000000;
+	pr_vfocv += (temp2 << 4);
+
+	/* MixCap differ is greater than 265mAh */
+	if ((((vfsoc+5) < fuelgauge->info.previous_vfsoc) ||
+		(vfsoc > (fuelgauge->info.previous_vfsoc+5))) ||
+		(((repsoc+5) < fuelgauge->info.previous_repsoc) ||
+		(repsoc > (fuelgauge->info.previous_repsoc+5))) ||
+		(((mixcap+530) < fuelgauge->info.previous_mixcap) ||
+		(mixcap > (fuelgauge->info.previous_mixcap+530)))) {
+		fg_periodic_read(client);
+
+		pr_info("[FG_Recovery] (B) VfSOC(%d), prevVfSOC(%d), RepSOC(%d), prevRepSOC(%d), MixCap(%d), prevMixCap(%d),VfOCV(0x%04x, %d)\n",
+			vfsoc,
+			fuelgauge->info.previous_vfsoc,
+			repsoc, fuelgauge->info.previous_repsoc,
+			(mixcap/2),
+			(fuelgauge->info.previous_mixcap/2),
+			vfocv,
+			pr_vfocv);
+
+		mutex_lock(&fuelgauge->fg_lock);
+
+		fg_write_and_verify_register(client, REMCAP_MIX_REG,
+			fuelgauge->info.previous_mixcap);
+		fg_write_register(client, VFOCV_REG,
+			fuelgauge->info.previous_vfocv);
+		mdelay(200);
+
+		fg_write_and_verify_register(client, REMCAP_REP_REG,
+			fuelgauge->info.previous_remcap);
+		vfsoc = fg_read_register(client, VFSOC_REG);
+		fg_write_register(client, 0x60, 0x0080);
+		fg_write_and_verify_register(client, 0x48, vfsoc);
+		fg_write_register(client, 0x60, 0x0000);
+
+		fg_write_and_verify_register(client, 0x45,
+			(fuelgauge->info.previous_vfcapacity / 4));
+		fg_write_and_verify_register(client, 0x46, 0x3200);
+		fg_write_and_verify_register(client, FULLCAP_REG,
+			fuelgauge->info.previous_fullcapacity);
+		fg_write_and_verify_register(client, FULLCAP_NOM_REG,
+			fuelgauge->info.previous_vfcapacity);
+
+		mutex_unlock(&fuelgauge->fg_lock);
+
+		msleep(200);
+
+		/* ocv calculation for print */
+		new_vfocv = fg_read_register(client, VFOCV_REG);
+		temp = (new_vfocv & 0xFFF) * 78125;
+		pr_vfocv = temp / 1000000;
+
+		temp = ((new_vfocv & 0xF000) >> 4) * 78125;
+		temp2 = temp / 1000000;
+		pr_vfocv += (temp2 << 4);
+
+		pr_info("[FG_Recovery] (A) newVfSOC(%d), newRepSOC(%d), newMixCap(%d), newVfOCV(0x%04x, %d)\n",
+			fg_read_vfsoc(client),
+			fg_read_soc(client),
+			(fg_read_register(client, REMCAP_MIX_REG)/2),
+			new_vfocv,
+			pr_vfocv);
+
+		fg_periodic_read(client);
+
+		ret = 1;
+	} else {
+		fuelgauge->info.previous_vfsoc = vfsoc;
+		fuelgauge->info.previous_repsoc = repsoc;
+		fuelgauge->info.previous_remcap = remcap;
+		fuelgauge->info.previous_mixcap = mixcap;
+		fuelgauge->info.previous_fullcapacity = fullcapacity;
+		fuelgauge->info.previous_vfcapacity = vffullcapacity;
+		fuelgauge->info.previous_vfocv = vfocv;
+	}
+
+	return ret;
+}
+
 void fg_set_full_charged(struct i2c_client *client)
 {
 	dev_info(&client->dev, "[FG_Set_Full] (B) FullCAP(%d), RemCAP(%d)\n",
@@ -1809,6 +1940,59 @@ int low_batt_compensation(struct i2c_client *client,
 	return fg_soc;
 }
 
+static void fg_set_battery_type(struct i2c_client *client)
+{
+	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
+
+	u16 data;
+	u8 type_str[10];
+
+	data = fg_read_register(client, DESIGNCAP_REG);
+
+	if ((data == sdi_vfcapacity) || (data == sdi_vfcapacity-1))
+		fuelgauge->info.battery_type = SDI_BATTERY_TYPE;
+	else if ((data == atl_vfcapacity) || (data == atl_vfcapacity-1))
+		fuelgauge->info.battery_type = ATL_BATTERY_TYPE;
+	else {
+		pr_info("%s : Unknown battery is set to SDI type.\n", __func__);
+		fuelgauge->info.battery_type = SDI_BATTERY_TYPE;
+	}
+
+	if (fuelgauge->info.battery_type == SDI_BATTERY_TYPE)
+		sprintf(type_str, "SDI");
+	else if (fuelgauge->info.battery_type == ATL_BATTERY_TYPE)
+		sprintf(type_str, "ATL");
+	else
+		sprintf(type_str, "Unknown");
+
+	pr_info("%s : DesignCAP(0x%04x), Battery type(%s)\n",
+		__func__, data, type_str);
+
+	switch (fuelgauge->info.battery_type) {
+	case ATL_BATTERY_TYPE:
+		fuelgauge->info.capacity = atl_capacity;
+		fuelgauge->info.vfcapacity = atl_vfcapacity;
+		break;
+
+	case SDI_BATTERY_TYPE:
+	default:
+		fuelgauge->info.capacity = sdi_capacity;
+		fuelgauge->info.vfcapacity = sdi_vfcapacity;
+		break;
+	}
+
+	/* If not initialized yet, then init threshold values. */
+	if (!fuelgauge->info.check_start_vol) {
+		if (fuelgauge->info.battery_type == SDI_BATTERY_TYPE)
+			fuelgauge->info.check_start_vol =
+			sdi_low_bat_comp_start_vol;
+		else if (fuelgauge->info.battery_type == ATL_BATTERY_TYPE)
+			fuelgauge->info.check_start_vol =
+			atl_low_bat_comp_start_vol;
+	}
+
+}
+
 static bool is_booted_in_low_battery(struct i2c_client *client)
 {
 	int fg_vcell = get_fuelgauge_value(client, FG_VOLTAGE);
@@ -1877,27 +2061,14 @@ static int get_fuelgauge_soc(struct i2c_client *client)
 	int fg_vcell;
 	int fg_current;
 	int avg_current;
-	ktime_t	current_time;
-	struct timespec ts;
-	int fullcap_check_interval;
+	int recover_flag = 0;
 
-	if (fuelgauge->info.is_low_batt_alarm)
-		if (fuelgauge_recovery_handler(client))
-			goto return_soc;
+	recover_flag = fg_check_cap_corruption(client);
 
-	current_time = alarm_get_elapsed_realtime();
-	ts = ktime_to_timespec(current_time);
-
-	/* check fullcap range */
-	fullcap_check_interval =
-		(ts.tv_sec - fuelgauge->info.fullcap_check_interval);
-	if (fullcap_check_interval >
-		VFFULLCAP_CHECK_INTERVAL) {
-		dev_info(&client->dev,
-			"%s: check fullcap range (interval:%d)\n",
-			__func__, fullcap_check_interval);
+	/* check VFcapacity every five minutes */
+	if (!(fuelgauge->info.fg_chk_cnt++ % 10)) {
 		fg_check_vf_fullcap_range(client);
-		fuelgauge->info.fullcap_check_interval = ts.tv_sec;
+		fuelgauge->info.fg_chk_cnt = 1;
 	}
 
 	fg_soc = get_fuelgauge_value(client, FG_LEVEL);
@@ -2008,16 +2179,10 @@ bool sec_hal_fg_init(struct i2c_client *client)
 {
 	struct sec_fuelgauge_info *fuelgauge =
 				i2c_get_clientdata(client);
-	ktime_t	current_time;
-	struct timespec ts;
 
-	current_time = alarm_get_elapsed_realtime();
-	ts = ktime_to_timespec(current_time);
-
-	fuelgauge->info.fullcap_check_interval = ts.tv_sec;
-
-	fuelgauge->info.is_low_batt_alarm = false;
 	fuelgauge->info.is_first_check = true;
+
+	fg_set_battery_type(client);
 
 	/* Init parameters to prevent wrong compensation. */
 	fuelgauge->info.previous_fullcap =

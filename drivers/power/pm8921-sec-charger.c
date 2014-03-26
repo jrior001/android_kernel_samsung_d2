@@ -33,6 +33,7 @@
 #include <mach/msm_hsusb.h>
 #include <linux/mfd/pm8xxx/pm8921-sec-charger.h>
 #include <linux/hrtimer.h>
+#include <linux/android_alarm.h>
 #include <linux/proc_fs.h>
 #include <linux/fs.h>
 

@@ -65,10 +65,14 @@
 
 #define DRV_NAME "mipi_tc358764"
 
+#include <linux/lcd.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/pwm.h>
 #include <linux/gpio.h>
+
+#include <linux/interrupt.h>
+#include <linux/workqueue.h>
 #include "msm_fb.h"
 #include "mdp4.h"
 #include "mipi_dsi.h"
@@ -564,6 +568,51 @@ static int mipi_d2l_dsi_init_sequence(struct msm_fb_data_type *mfd)
 #endif /* CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT */
 	return 0;
 }
+
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+static int scale_pwm_dutycycle(int level)
+{
+#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	int i;
+	/* add delay before backlight on */
+	if (boot_first) {
+		for (i = 0; i < 10; i++)
+			mdelay(25);
+		boot_first = 0;
+	}
+#endif
+	int scaled_level = 0;
+	if (level == BRIGHTNESS_OFF)
+		scaled_level = BRIGHTNESS_OFF;
+	else if (level <= BRIGHTNESS_DIM)
+		scaled_level = PWM_DUTY_MAX*DUTY_DIM;
+	else if (level <= BRIGHTNESS_MIN)
+		scaled_level = (level - BRIGHTNESS_DIM) *
+			(PWM_DUTY_MAX * DUTY_MIN - PWM_DUTY_MAX * DUTY_DIM) /
+			(BRIGHTNESS_MIN - BRIGHTNESS_DIM) +
+			PWM_DUTY_MAX * DUTY_DIM;
+	else if (level <= BRIGHTNESS_25)
+		scaled_level = (level - BRIGHTNESS_MIN) *
+			(PWM_DUTY_MAX * DUTY_25 - PWM_DUTY_MAX * DUTY_MIN) /
+			(BRIGHTNESS_25 - BRIGHTNESS_MIN) +
+			PWM_DUTY_MAX * DUTY_MIN;
+	else if (level <= BRIGHTNESS_DEFAULT)
+		scaled_level = (level - BRIGHTNESS_25) *
+			(PWM_DUTY_MAX * DUTY_DEFAULT - PWM_DUTY_MAX * DUTY_25)
+			/ (BRIGHTNESS_DEFAULT - BRIGHTNESS_25) +
+			PWM_DUTY_MAX * DUTY_25;
+	else if (level <= BRIGHTNESS_MAX)
+		scaled_level = (level - BRIGHTNESS_DEFAULT) *
+			(PWM_DUTY_MAX * DUTY_MAX - PWM_DUTY_MAX * DUTY_DEFAULT)
+			/ (BRIGHTNESS_MAX - BRIGHTNESS_DEFAULT) +
+			PWM_DUTY_MAX * DUTY_DEFAULT;
+	pr_debug("%s: level: %d, scaled_level: %d, proc:%s, pid: %d, tgid:%d\n",
+		__func__, level, scaled_level, current->comm,
+		current->pid, current->tgid);
+	return scaled_level;
+}
+#endif
 
 /**
  * Set Backlight level.
@@ -1155,7 +1204,8 @@ static int __devexit mipi_d2l_remove(struct platform_device *pdev)
  * @return int
  */
 int mipi_tc358764_dsi2lvds_register(struct msm_panel_info *pinfo,
-					   u32 channel_id, u32 panel_id)
+					   u32 channel_id, u32 panel_id,
+					   struct dsi2lvds_panel_data *dpd)
 {
 	struct platform_device *pdev = NULL;
 	int ret;
@@ -1175,6 +1225,13 @@ int mipi_tc358764_dsi2lvds_register(struct msm_panel_info *pinfo,
 		return -ENOMEM;
 
 	pdev->dev.platform_data = pinfo;
+
+	ddd.dpd = dpd;
+	if (!ddd.dpd) {
+		printk(KERN_ERR
+		  "%s: get mipi_panel_data failed!\n", __func__);
+		goto err_device_put;
+	}
 
 	ret = platform_device_add(pdev);
 	if (ret) {

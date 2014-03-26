@@ -12,13 +12,27 @@
  */
 
 #include <asm/mach-types.h>
+#include <linux/module.h>
 #include <linux/gpio.h>
 #include <mach/camera.h>
+#include <mach/board.h>
 #include <mach/msm_bus_board.h>
 #include <mach/socinfo.h>
 #include <mach/gpiomux.h>
 #include "devices.h"
 #include "board-8960.h"
+#include <linux/clk.h>
+#include <linux/io.h>
+#include <linux/ctype.h>
+#include <linux/regulator/consumer.h>
+#include <mach/board-msm8960-camera.h>
+#include <mach/gpio.h>
+#include <mach/msm8960-gpio.h>
+#include <mach/msm_iomap.h>
+#include <mach/camera.h>
+#include <linux/spi/spi.h>
+
+extern unsigned int system_rev;
 
 #ifdef CONFIG_MSM_CAMERA
 

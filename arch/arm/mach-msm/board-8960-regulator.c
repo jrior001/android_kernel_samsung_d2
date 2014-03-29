@@ -121,6 +121,10 @@ VREG_CONSUMERS(L16) = {
 	REGULATOR_SUPPLY("cam_vaf",		"4-003d"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-002d"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0045"),
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	REGULATOR_SUPPLY("lvds_3p3",		"mipi_dsi.1"),
+#endif
 };
 VREG_CONSUMERS(L17) = {
 	REGULATOR_SUPPLY("8921_l17",		NULL),
@@ -128,6 +132,10 @@ VREG_CONSUMERS(L17) = {
 VREG_CONSUMERS(L18) = {
 	REGULATOR_SUPPLY("8921_l18",		NULL),
 	REGULATOR_SUPPLY("camDVDD",		"4-0045"),
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	REGULATOR_SUPPLY("lvds_1p2",	"mipi_dsi.1"),
+#endif /* CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL */
 };
 VREG_CONSUMERS(L21) = {
 	REGULATOR_SUPPLY("8921_l21",		NULL),
@@ -577,7 +585,12 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 
 	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
 	RPM_LDO(L1,	 1, 1, 0, 1050000, 1050000, "8921_s4", 0, 10000),
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	RPM_LDO(L2,	 0, 1, 1, 1200000, 1200000, "8921_s4", 0, 0),
+#else
 	RPM_LDO(L2,	 0, 1, 0, 1200000, 1200000, "8921_s4", 0, 0),
+#endif
 	RPM_LDO(L3,	 0, 1, 0, 3075000, 3300000, NULL,      0, 0),
 	RPM_LDO(L4,	 1, 1, 0, 1800000, 1800000, NULL,      10000, 10000),
 	RPM_LDO(L5,	 0, 1, 0, 2950000, 2950000, NULL,      0, 0),
@@ -599,7 +612,12 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8921_s4", 0, 0),
 	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
 	RPM_LDO(L15,	 0, 1, 0, 1800000, 2950000, NULL,      0, 0),
-#if defined(CONFIG_MACH_M2) || defined(CONFIG_MACH_APEXQ) || defined(CONFIG_MACH_EXPRESS) || defined(CONFIG_MACH_M2_DCM)
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	RPM_LDO(L16,	 0, 1, 1, 3300000, 3300000, NULL,      0, 0),
+	RPM_LDO(L17,	 0, 1, 0, 1800000, 3300000, NULL,      0, 0),
+	RPM_LDO(L18,	 0, 1, 1, 1200000, 1500000, "8921_s4", 0, 0),
+#elif defined(CONFIG_MACH_M2) || defined(CONFIG_MACH_APEXQ) || defined(CONFIG_MACH_EXPRESS) || defined(CONFIG_MACH_M2_DCM)
 	RPM_LDO(L16,	 0, 1, 0, 2800000, 3000000, NULL,      0, 0),
 	RPM_LDO(L17,	 0, 1, 0, 1800000, 3300000, NULL,      0, 0),
 #if defined(CONFIG_MACH_APEXQ) || defined(CONFIG_MACH_EXPRESS)
@@ -626,8 +644,14 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_VS(LVS2,	 0, 1, 0,		    "8921_s1"),
 	RPM_VS(LVS3,	 0, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS4,	 0, 1, 0,		    "8921_s4"),
+#if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+	RPM_VS(LVS5,	 0, 1, 1,		    NULL),
+	RPM_VS(LVS6,	 0, 1, 1,		    NULL),
+#else
 	RPM_VS(LVS5,	 0, 1, 0,		    "8921_s4"),
 	RPM_VS(LVS6,	 0, 1, 0,		    "8921_s4"),
+#endif
 	RPM_VS(LVS7,	 0, 1, 0,		    "8921_s4"),
 
 	/*	 ID      a_on  ss min_uV   max_uV   supply        freq */

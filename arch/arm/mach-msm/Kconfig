@@ -799,6 +799,13 @@ config MACH_MSM8960_FLUID
 	help
 	  Support for the Qualcomm MSM8960 FLUID device.
 
+config MACH_ESPRESSO_VZW
+        depends on ARCH_MSM8960
+        default n
+        bool "MSM8960 Samsung ESPRESSO_VZW"
+        help
+          Support for the Samsung Espresso(Verizon) device.
+
 config MACH_MSM8960_LIQUID
 	depends on ARCH_MSM8960
 	bool "MSM8960 LIQUID"

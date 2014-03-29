@@ -557,7 +557,15 @@ msm_pm8921_regulator_pdata[] __devinitdata = {
 		0, 2),
 	PM8XXX_NLDO1200(L28, "8921_l28", 0, 1, 375000, 1050000, 200, "8921_s7",
 		0, 3),
-#if defined(CONFIG_MACH_M2) || defined(CONFIG_MACH_APEXQ) || defined(CONFIG_MACH_EXPRESS) || defined(CONFIG_MACH_M2_DCM)
+#if defined(CONFIG_MACH_ESPRESSO_ATT) || defined(CONFIG_MACH_ESPRESSO_VZW) \
+	|| defined(CONFIG_MACH_JAGUAR) || defined(CONFIG_MACH_ESPRESSO10_VZW) \
+	|| defined(CONFIG_MACH_ESPRESSO_SPR) \
+	|| defined(CONFIG_MACH_ESPRESSO10_SPR) \
+	|| defined(CONFIG_MACH_ESPRESSO10_ATT) \
+	|| defined(CONFIG_MACH_KONA)
+	PM8XXX_LDO(L29,      "8921_l29", 0, 1, 1800000, 2050000, 200, "8921_s8",
+		0, 4),
+#elif defined(CONFIG_MACH_M2) || defined(CONFIG_MACH_APEXQ) || defined(CONFIG_MACH_EXPRESS) || defined(CONFIG_MACH_M2_DCM)
 	PM8XXX_LDO(L29,      "8921_l29", 0, 1, 1800000, 1800000, 200, "8921_s8",
 		0, 4),
 #else

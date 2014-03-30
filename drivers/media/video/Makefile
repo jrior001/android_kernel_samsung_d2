@@ -217,7 +217,11 @@ else
 ifeq ($(CONFIG_ISX012),y)
 obj-$(CONFIG_MSM_CAMERA) += msm_apexq/
 else
+ifeq ($(CONFIG_S5K5CCGX),y)
+obj-$(CONFIG_MSM_CAMERA) += msm_apexq/
+else
 obj-$(CONFIG_MSM_CAMERA) += msm/
+endif
 endif
 endif
 obj-$(CONFIG_ARCH_OMAP)	+= omap/

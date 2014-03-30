@@ -194,9 +194,9 @@
 #if defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL)
 static u32 d2l_pwm_freq_hz = (6250);	/* 33 KHZ */
 #define PWM_LEVEL 160
-#endif
+#else
 static u32 d2l_pwm_freq_hz = (3.921*1000);
-
+#endif
 #define PWM_FREQ_HZ	(d2l_pwm_freq_hz)
 #define PWM_PERIOD_USEC (USEC_PER_SEC / PWM_FREQ_HZ)
 #define PWM_DUTY_LEVEL (PWM_PERIOD_USEC / PWM_LEVEL)
@@ -241,9 +241,12 @@ static struct dsi_buf d2l_tx_buf;
 static struct dsi_buf d2l_rx_buf;
 static int led_pwm;
 static struct pwm_device *bl_pwm;
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static struct pwm_device *tn_pwm;
-#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+#endif
 static int initial_powerseq;
+#if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
 static int boot_first;
 #endif
 static int bl_level;
@@ -251,17 +254,23 @@ static int bl_level;
 	|| defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static struct delayed_work  det_work;
 #endif
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static u32 d2l_gpio_out_mask;
 static u32 d2l_gpio_out_val;
 static u32 d2l_3d_gpio_enable;
 static u32 d2l_3d_gpio_mode;
 static int d2l_enable_3d;
+#endif
 static struct i2c_client *d2l_i2c_client;
 static struct i2c_driver d2l_i2c_slave_driver;
 
 static int mipi_d2l_init(void);
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
-			      bool enable, bool mode);
+			bool enable, bool mode);
+#endif
 static u32 d2l_i2c_read_reg(struct i2c_client *client, u16 reg);
 static u32 d2l_i2c_write_reg(struct i2c_client *client, u16 reg, u32 val);
 
@@ -910,6 +919,8 @@ static struct i2c_driver d2l_i2c_slave_driver = {
 	.id_table = d2l_i2c_id,
 };
 
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 static int mipi_d2l_enable_3d(struct msm_fb_data_type *mfd,
 			      bool enable, bool mode)
 {
@@ -1003,6 +1014,7 @@ err_device_create_file:
 
 	return ret;
 }
+#endif
 
 /**
  * Probe for device.
@@ -1032,11 +1044,13 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 		}
 
 		led_pwm = d2l_common_pdata->gpio_num[0];
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 		d2l_gpio_out_mask = d2l_common_pdata->gpio_num[1] >> 8;
 		d2l_gpio_out_val = d2l_common_pdata->gpio_num[1] & 0xFF;
 		d2l_3d_gpio_enable = d2l_common_pdata->gpio_num[2];
 		d2l_3d_gpio_mode = d2l_common_pdata->gpio_num[3];
-
+#endif
 		mipi_dsi_buf_alloc(&d2l_tx_buf, DSI_BUF_SIZE);
 		mipi_dsi_buf_alloc(&d2l_rx_buf, DSI_BUF_SIZE);
 
@@ -1064,7 +1078,8 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 	} else {
 		pr_err("%s. led_pwm is invalid.\n", __func__);
 	}
-
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 	tn_pwm = pwm_request(1, "3D_TN_clk");
 	if (tn_pwm == NULL || IS_ERR(tn_pwm)) {
 		pr_err("%s pwm_request() failed.id=%d.tn_pwm=%d.\n",
@@ -1075,7 +1090,7 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 		pr_debug("%s.pwm_request() ok.pwm-id=%d.\n", __func__, 1);
 
 	}
-
+#endif
 	pinfo = pdev->dev.platform_data;
 
 	if (pinfo == NULL) {
@@ -1089,9 +1104,11 @@ static int __devinit mipi_d2l_probe(struct platform_device *pdev)
 
 	msm_fb_add_device(pdev);
 
+#if !defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) \
+	&& !defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT)
 	if (pinfo->is_3d_panel)
 		mipi_dsi_3d_barrier_sysfs_register(&(pdev->dev));
-
+#endif
 	return ret;
 }
 
@@ -1125,7 +1142,8 @@ static int __devexit mipi_d2l_remove(struct platform_device *pdev)
  * @return int
  */
 int mipi_tc358764_dsi2lvds_register(struct msm_panel_info *pinfo,
-					   u32 channel_id, u32 panel_id)
+					   u32 channel_id, u32 panel_id,
+					   struct dsi2lvds_panel_data *dpd)
 {
 	struct platform_device *pdev = NULL;
 	int ret;

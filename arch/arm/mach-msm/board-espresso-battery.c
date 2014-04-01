@@ -20,10 +20,12 @@
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
+#include <linux/mfd/pm8xxx/pm8921-sec-charger.h>
 
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/msm8960-gpio.h>
+#include <asm/system_info.h>
 
 #include "devices-msm8x60.h"
 #include "board-8960.h"

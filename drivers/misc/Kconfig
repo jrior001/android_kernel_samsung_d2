@@ -769,6 +769,7 @@ config ADC_STMPE811
 	help
 	  This option enables ADC checking driver. stmpe811.
 
+
 config SAMSUNG_JACK
 	bool "3.5 PI JACK driver for Samsung devices"
 	depends on INPUT

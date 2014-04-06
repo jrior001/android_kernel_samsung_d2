@@ -1878,8 +1878,12 @@ static struct taos_platform_data taos_pdata = {
 
 static struct i2c_board_info opt_i2c_board_info[] = {
 	{
+#if defined(CONFIG_OPTICAL_TAOS_TRITON)
 		I2C_BOARD_INFO("taos", 0x39),
 		.platform_data = &taos_pdata,
+#elif defined(CONFIG_SENSORS_AL3201)
+		I2C_BOARD_INFO("AL3201", 0x1c),
+#endif
 	},
 };
 
@@ -5319,31 +5323,8 @@ static void __init samsung_apexq_init(void)
 		secjack_gpio_init();
 	}
 #endif
-#if defined(CONFIG_SLIMBUS_MSM_CTRL)
-
-	ret = gpio_request(PM8921_GPIO_PM_TO_SYS(38), "CDC_RESET");
-	if (ret) {
-		printk("%s: Failed to request gpio %d\n", __func__,
-			PM8921_GPIO_PM_TO_SYS(38));
-	} else {
-		ret = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(38), &tparam);
-		if (ret)
-			printk("%s: Failed to configure gpio\n", __func__);
-		else {
-			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(38), 1);
-			msleep(20);
-			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(38), 0);
-			msleep(20);
-			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(38), 1);
-			msleep(20);
-		}
-		gpio_free(PM8921_GPIO_PM_TO_SYS(38));
-	}
-	
-        platform_device_register(&msm_slim_ctrl);
-        slim_register_board_info(msm_slim_devices,
-                ARRAY_SIZE(msm_slim_devices));
-#endif
+	slim_register_board_info(msm_slim_devices,
+		ARRAY_SIZE(msm_slim_devices));
 	msm8960_init_dsps();
 #if 0
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);

@@ -361,16 +361,15 @@ static bool sec_bat_check_cable_result_callback(
 	case POWER_SUPPLY_TYPE_USB:
 		pr_info("%s set vbus applied\n",
 			__func__);
-		msm_otg_set_cable_state(cable_type);
 		break;
 
 	case POWER_SUPPLY_TYPE_BATTERY:
 		pr_info("%s set vbus cut\n",
 			__func__);
-		msm_otg_set_cable_state(cable_type);
+		msm_otg_set_charging_state(0);
 		break;
 	case POWER_SUPPLY_TYPE_MAINS:
-		msm_otg_set_cable_state(cable_type);
+		msm_otg_set_charging_state(1);
 		break;
 	default:
 		pr_err("%s cable type (%d)\n",
@@ -625,9 +624,8 @@ static sec_battery_platform_data_t sec_battery_pdata = {
 	.temp_low_recovery_lpm = -3,
 
 	.full_check_type = SEC_BATTERY_FULLCHARGED_ADC,
+	.full_check_type_2nd = SEC_BATTERY_FULLCHARGED_NONE,
 	.full_check_count = 4,
-	.full_check_adc_1st = 26500,
-	.full_check_adc_2nd = 25800,
 	.chg_gpio_full_check =
 		PM8921_GPIO_PM_TO_SYS(PMIC_GPIO_CHG_STAT),
 	.chg_polarity_full_check = 1,

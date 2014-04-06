@@ -455,6 +455,10 @@ struct sec_battery_platform_data {
 	/* 2nd full check */
 	sec_battery_full_charged_t full_check_type_2nd;
 	unsigned int full_check_count;
+	/* ADC for single termination */
+	unsigned int full_check_adc_1st;
+	/* ADC for dual termination */
+	unsigned int full_check_adc_2nd;
 	int chg_gpio_full_check;
 	/* 1 : active high, 0 : active low */
 	int chg_polarity_full_check;

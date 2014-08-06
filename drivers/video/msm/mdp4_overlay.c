@@ -140,6 +140,7 @@ void  mdp4_overlay_free_base_pipe(struct msm_fb_data_type *mfd)
 
 static struct ion_client *display_iclient;
 
+
 static int mdp4_map_sec_resource(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;

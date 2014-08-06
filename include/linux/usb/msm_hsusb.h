@@ -225,6 +225,9 @@ struct msm_otg_platform_data {
 #endif
 	const char *mhl_dev_name;
 	bool smb347s;
+	unsigned int vbus_gpio;
+	int vbus_irq;
+	bool enable_dcd;
 };
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */

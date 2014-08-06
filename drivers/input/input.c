@@ -33,6 +33,7 @@ MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
 
 #define INPUT_DEVICES	256
+extern int poweroff_charging;
 
 static LIST_HEAD(input_dev_list);
 static LIST_HEAD(input_handler_list);

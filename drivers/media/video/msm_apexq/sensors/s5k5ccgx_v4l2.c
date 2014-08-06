@@ -22,8 +22,11 @@
 #include <media/v4l2-subdev.h>
 #include <mach/gpio.h>
 #include <mach/camera.h>
+#include <mach/espresso_vzw-gpio.h>
+#include <linux/module.h>
 
 #include <asm/mach-types.h>
+#include <asm/gpio.h>
 #include <mach/vreg.h>
 #include <linux/io.h>
 
@@ -947,7 +950,7 @@ static int s5k5ccgx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	CAM_DEBUG("CAM_3M_ISP_INIT : %d", temp);
 
 	/*Power on the LDOs */
-	data->sensor_platform_info->sensor_power_on(0);
+	data->sensor_platform_info->sensor_power_on(0,0);
 
 	/*Set Main clock */
 	gpio_tlmm_config(GPIO_CFG(data->sensor_platform_info->mclk, 1,
@@ -1033,7 +1036,7 @@ static int s5k5ccgx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	CAM_DEBUG("CAM_3M_ISP_INIT : %d", temp);
 
 	/*Power on the LDOs */
-	data->sensor_platform_info->sensor_power_on(0);
+	data->sensor_platform_info->sensor_power_on(0,0);
 	usleep(20);
 
 	/*standy VT */

@@ -3211,6 +3211,41 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 
 	return ret;
 }
+void msm_otg_set_cable_state(int type)
+{
+	struct msm_otg *motg = the_msm_otg;
+
+	switch (type) {
+	case POWER_SUPPLY_TYPE_USB:
+		pr_info("%s, POWER_SUPPLY_TYPE_USB\n", __func__);
+		if (motg->chg_state != USB_CHG_STATE_DETECTED) {
+			cancel_delayed_work_sync(&motg->chg_work);
+			motg->chg_type = USB_SDP_CHARGER;
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+			if (!test_bit(B_SESS_VLD, &motg->inputs))
+				set_bit(B_SESS_VLD, &motg->inputs);
+			schedule_work(&motg->sm_work);
+		}
+		break;
+	case POWER_SUPPLY_TYPE_MAINS:
+		pr_info("%s, POWER_SUPPLY_TYPE_MAINS\n", __func__);
+		if (motg->chg_state != USB_CHG_STATE_DETECTED) {
+			cancel_delayed_work_sync(&motg->chg_work);
+			motg->chg_type = USB_DCP_CHARGER;
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+			if (!test_bit(B_SESS_VLD, &motg->inputs))
+				set_bit(B_SESS_VLD, &motg->inputs);
+			schedule_work(&motg->sm_work);
+		}
+		break;
+	case POWER_SUPPLY_TYPE_BATTERY:
+		pr_info("%s, POWER_SUPPLY_TYPE_BATTERY\n", __func__);
+		motg->chg_state = USB_CHG_STATE_UNDEFINED;
+		motg->chg_type = USB_INVALID_CHARGER;
+		break;
+	}
+}
+EXPORT_SYMBOL_GPL(msm_otg_set_cable_state);
 
 #ifndef CONFIG_USB_MSM_USE_POWER_SUPPLY_API
 void msm_otg_set_vbus_state(int online)

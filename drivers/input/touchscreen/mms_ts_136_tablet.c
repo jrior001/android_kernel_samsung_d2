@@ -2246,6 +2246,7 @@ static int __devinit mms_ts_probe(struct i2c_client *client,
 		info->max_y = info->pdata->max_y;
 		info->invert_x = info->pdata->invert_x;
 		info->invert_y = info->pdata->invert_y;
+		info->flip_xy = info->pdata->flip_xy;
 		info->config_fw_version = info->pdata->config_fw_version;
 	} else {
 		info->max_x = 1024;

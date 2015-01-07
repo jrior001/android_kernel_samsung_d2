@@ -1984,7 +1984,7 @@ static struct taos_platform_data taos_pdata = {
 };
 #endif
 
-static struct i2c_board_info opt_i2c_borad_info[] = {
+static struct i2c_board_info opt_i2c_board_info[] = {
 	{
 #if defined(CONFIG_OPTICAL_GP2A)
 		I2C_BOARD_INFO("gp2a", 0x88>>1),
@@ -2233,7 +2233,7 @@ static struct bmp_i2c_platform_data bmp180_pdata = {
 };
 #endif
 
-static struct i2c_board_info sns_i2c_borad_info[] = {
+static struct i2c_board_info sns_i2c_board_info[] = {
 #ifdef CONFIG_MPU_SENSORS_MPU6050B1
 	{
 	 I2C_BOARD_INFO(SENSOR_MPU_NAME, 0x68),
@@ -4721,7 +4721,7 @@ struct i2c_registry {
 
 
 #ifdef CONFIG_SAMSUNG_CMC624
-static struct i2c_board_info cmc624_i2c_borad_info[] = {
+static struct i2c_board_info cmc624_i2c_board_info[] = {
 	{
 		I2C_BOARD_INFO("cmc624", 0x38),
 	},
@@ -4862,8 +4862,8 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_SNS_I2C_BUS_ID,
-		sns_i2c_borad_info,
-		ARRAY_SIZE(sns_i2c_borad_info),
+		sns_i2c_board_info,
+		ARRAY_SIZE(sns_i2c_board_info),
 	},
 #endif
 #if defined(CONFIG_OPTICAL_GP2A) || \
@@ -4873,16 +4873,16 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_OPT_I2C_BUS_ID,
-		opt_i2c_borad_info,
-		ARRAY_SIZE(opt_i2c_borad_info),
+		opt_i2c_board_info,
+		ARRAY_SIZE(opt_i2c_board_info),
 	},
 #endif
 #ifdef CONFIG_SAMSUNG_CMC624
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID ,
 		MSM_CMC624_I2C_BUS_ID,
-		cmc624_i2c_borad_info,
-		ARRAY_SIZE(cmc624_i2c_borad_info),
+		cmc624_i2c_board_info,
+		ARRAY_SIZE(cmc624_i2c_board_info),
 	},
 #endif
 	{

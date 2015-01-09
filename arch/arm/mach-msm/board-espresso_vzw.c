@@ -2571,11 +2571,15 @@ static struct platform_device a2220_i2c_gpio_device = {
  * does not need to be as high as 2.85V. It is choosen for
  * microphone sensitivity purpose.
  */
-#ifndef CONFIG_SLIMBUS_MSM_CTRL
-static struct wcd9xxx_pdata tabla_i2c_platform_data = {
-	.irq = MSM_GPIO_TO_INT(58),
+
+static struct wcd9xxx_pdata tabla20_platform_data = {
+	.slimbus_slave_device = {
+                .name = "tabla-slave",
+                .e_addr = {0, 0, 0x60, 0, 0x17, 2},
+        },
+	.irq = MSM_GPIO_TO_INT(GPIO_CODEC_MAD_INTR),
 	.irq_base = TABLA_INTERRUPT_BASE,
-	.num_irqs = NR_TABLA_IRQS,
+	.num_irqs = NR_WCD9XXX_IRQS,
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(38),
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
@@ -2626,8 +2630,24 @@ static struct wcd9xxx_pdata tabla_i2c_platform_data = {
 	},
 	},
 };
+
+static struct slim_device msm_slim_tabla20 = {
+	.name = "tabla2x-slim",
+	.e_addr = {0, 1, 0x60, 0, 0x17, 2},
+	.dev = {
+		.platform_data = &tabla20_platform_data,
+	},
+};
+
+static struct slim_boardinfo msm_slim_devices[] = {
+	{
+		.bus_num = 1,
+		.slim_slave = &msm_slim_tabla20,
+	},
+	/* add more slimbus slaves as needed */
+};
 #endif
-#endif
+
 #define MSM_WCNSS_PHYS	0x03000000
 #define MSM_WCNSS_SIZE	0x280000
 

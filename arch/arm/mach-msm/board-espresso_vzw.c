@@ -4426,6 +4426,13 @@ static struct platform_device *common_devices[] __initdata = {
 	&fish_battery_device,
 #endif
 	&msm8960_fmem_device,
+#ifdef CONFIG_ANDROID_PMEM
+#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
+        &msm8960_android_pmem_device,
+        &msm8960_android_pmem_adsp_device,
+        &msm8960_android_pmem_audio_device,
+#endif
+#endif
 #ifdef CONFIG_KEYBOARD_GPIO
 	&msm8960_gpio_keys_device,
 #endif
@@ -5133,6 +5140,16 @@ static void __init msm8960_tsens_init(void)
 
 static void __init samsung_espresso_vzw_init(void)
 {
+	int ret;
+	struct pm_gpio tparam = {
+		.direction = PM_GPIO_DIR_OUT,
+		.output_buffer = PM_GPIO_OUT_BUF_CMOS,
+		.output_value = 1,
+		.pull = PM_GPIO_PULL_NO,
+		.vin_sel = PM_GPIO_VIN_S4,
+		.out_strength = PM_GPIO_STRENGTH_MED,
+		.function = PM_GPIO_FUNC_NORMAL,
+	};
 #ifdef CONFIG_SEC_DEBUG
 	sec_debug_init();
 #endif
@@ -5251,7 +5268,31 @@ static void __init samsung_espresso_vzw_init(void)
 		secjack_gpio_init();
 	}
 #endif
+#if defined(CONFIG_SLIMBUS_MSM_CTRL)
 
+	ret = gpio_request(PM8921_GPIO_PM_TO_SYS(38), "CDC_RESET");
+	if (ret) {
+		printk("%s: Failed to request gpio %d\n", __func__,
+			PM8921_GPIO_PM_TO_SYS(38));
+	} else {
+		ret = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(38), &tparam);
+		if (ret)
+			printk("%s: Failed to configure gpio\n", __func__);
+		else {
+			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(38), 1);
+			msleep(20);
+			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(38), 0);
+			msleep(20);
+			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(38), 1);
+			msleep(20);
+		}
+		gpio_free(PM8921_GPIO_PM_TO_SYS(38));
+	}
+	
+        platform_device_register(&msm_slim_ctrl);
+        slim_register_board_info(msm_slim_devices,
+                ARRAY_SIZE(msm_slim_devices));
+#endif
 	msm8960_init_dsps();
 #if 0
 	msm_pm_set_rpm_wakeup_irq(RPM_APCC_CPU0_WAKE_UP_IRQ);
@@ -5260,8 +5301,11 @@ static void __init samsung_espresso_vzw_init(void)
 #if 0
 	msm_pm_init_sleep_status_data(&msm_pm_slp_sts_data);
 #endif
+	msm_pm_set_tz_retention_flag(1);
+
 	if (PLATFORM_IS_CHARM25())
 		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
+	ion_adjust_secure_allocation();
 
 #ifndef CONFIG_USB_SWITCH_FSA9485
 	uart_connecting = 0;

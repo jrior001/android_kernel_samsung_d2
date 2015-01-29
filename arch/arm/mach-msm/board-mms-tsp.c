@@ -415,8 +415,8 @@ static struct mms_ts_platform_data mms_ts_pdata = {
 	.gpio_sda	= GPIO_TOUCH_SDA,
 	.check_module_type = false,
 #if defined(CONFIG_MACH_ESPRESSO_VZW)
-	.invert_y	= false,
-	.flip_xy	= false,
+	.invert_y	= true,
+	.flip_xy	= true,
 #endif
 };
 

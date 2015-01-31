@@ -3289,8 +3289,8 @@ struct acc_con_platform_data acc_con_pdata = {
 	.dock_irq_gpio = GPIO_DOCK_INT,
 #ifdef CONFIG_SEC_KEYBOARD_DOCK
 	.check_keyboard = check_sec_keyboard_dock,
-#endif
 	.register_cb = sec_30pin_register_cb,
+#endif
 };
 
 struct platform_device sec_device_connector = {

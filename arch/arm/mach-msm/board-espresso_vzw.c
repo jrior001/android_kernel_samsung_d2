@@ -5182,10 +5182,10 @@ static void __init samsung_espresso_vzw_init(void)
 		msm_rpmrs_levels[0].latency_us;
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
-	if (machine_is_msm8960_liquid()) {
+/*	if (machine_is_msm8960_liquid()) {
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
 			msm_hsic_pdata.hub_reset = HSIC_HUB_RESET_GPIO;
-	}
+	}*/
 #endif
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	msm8960_init_gpiomux();

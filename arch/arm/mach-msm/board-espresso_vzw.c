@@ -3371,7 +3371,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.vbus_power		= msm_hsusb_vbus_power,
 	.power_budget		= 750,
 	.phy_init_seq = phy_settings,
-	.smb347s		= false,
+	.smb347s		= true,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table	= &usb_bus_scale_pdata,
 #endif

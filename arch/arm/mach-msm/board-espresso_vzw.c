@@ -3111,7 +3111,7 @@ static int msm_hsusb_usb_en(bool on)
 	pr_info("%s, enable %d\n", __func__, on);
 	msm_otg_set_vbus_state(enable);
 	msleep(100);
-	//msm_otg_set_cable_state(POWER_SUPPLY_TYPE_USB);
+	msm_otg_set_cable_state(POWER_SUPPLY_TYPE_USB);
 	return 0;
 }
 
@@ -3302,7 +3302,7 @@ struct platform_device sec_device_connector = {
 
 static int phy_settings[] = {
 	0x44, 0x80,
-	0x3F, 0x81,
+	0x7F, 0x81,
 	0x3C, 0x82,
 	0x13, 0x83,
 	-1,
@@ -4163,7 +4163,7 @@ static struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
 	},
 };
-#if 0
+
 static struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= 91,
@@ -4171,7 +4171,7 @@ static struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
 	},
 };
-#endif
+
 static struct platform_device msm8960_device_ext_3p3v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= PM8921_GPIO_PM_TO_SYS(17),
@@ -4392,6 +4392,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
+	&msm8960_device_ext_l2_vreg,
 	&msm8960_device_ssbi_pmic,
 	&msm8960_device_ext_otg_sw_vreg,
 #ifndef CONFIG_SLIMBUS_MSM_CTRL
@@ -5182,10 +5183,10 @@ static void __init samsung_espresso_vzw_init(void)
 		msm_rpmrs_levels[0].latency_us;
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
-/*	if (machine_is_msm8960_liquid()) {
+	if (machine_is_msm8960_liquid()) {
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
 			msm_hsic_pdata.hub_reset = HSIC_HUB_RESET_GPIO;
-	}*/
+	}
 #endif
 	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	msm8960_init_gpiomux();

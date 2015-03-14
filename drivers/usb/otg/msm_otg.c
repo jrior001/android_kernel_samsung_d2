@@ -3390,6 +3390,27 @@ static void msm_pmic_id_status_w(struct work_struct *w)
 
 }
 
+#ifdef CONFIG_CAMERON_HEALTH
+void msm_otg_set_cameronhealth_state(bool enable)
+{
+	struct msm_otg *motg = the_msm_otg;
+
+	if (!enable) {
+		pr_info("CAMERON_HEALTH : ID set\n");
+		set_bit(ID, &motg->inputs);
+	} else {
+		pr_info("CAMERON_HEALTH : ID clear\n");
+		clear_bit(ID, &motg->inputs);
+	}
+
+	if (test_bit(B_SESS_VLD, &motg->inputs))
+		clear_bit(B_SESS_VLD, &motg->inputs);
+
+	schedule_work(&motg->sm_work);
+}
+EXPORT_SYMBOL_GPL(msm_otg_set_cameronhealth_state);
+#endif
+
 #define MSM_PMIC_ID_STATUS_DELAY	5 /* 5msec */
 static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 {

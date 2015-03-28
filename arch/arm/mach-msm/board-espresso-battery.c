@@ -355,6 +355,8 @@ static bool sec_bat_check_cable_result_callback(
 {
 	current_cable_type = cable_type;
 
+pr_err("%s cable type (%d)\n",
+			__func__, cable_type);
 	switch (cable_type) {
 	case POWER_SUPPLY_TYPE_USB:
 		pr_info("%s set vbus applied\n",
@@ -658,6 +660,7 @@ static sec_battery_platform_data_t sec_battery_pdata = {
 	.capacity_min = 0,
 
 	/* Charger */
+	.charger_name = "sec-charger",
 	.chg_gpio_en = 0,
 	.chg_polarity_en = 0,
 	.chg_gpio_status =

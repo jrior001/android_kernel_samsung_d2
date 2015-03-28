@@ -3111,7 +3111,7 @@ static int msm_hsusb_usb_en(bool on)
 	pr_info("%s, enable %d\n", __func__, on);
 	msm_otg_set_vbus_state(enable);
 	msleep(100);
-	msm_otg_set_cable_state(POWER_SUPPLY_TYPE_USB);
+//	msm_otg_set_cable_state(POWER_SUPPLY_TYPE_USB);
 	return 0;
 }
 

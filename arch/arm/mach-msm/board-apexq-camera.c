@@ -800,16 +800,8 @@ static struct msm_camera_sensor_flash_data flash_s5k5ccgx = {
 
 static struct msm_camera_sensor_platform_info sensor_board_info_s5k5ccgx = {
 	.sensor_reset	= GPIO_CAM1_RST_N,
-#if defined(CONFIG_MACH_JASPER) 
-	.mount_angle	= 90,
-	.sensor_stby	= PM8921_GPIO_PM_TO_SYS(PMIC_GPIO_MAIN_CAM_STBY),
-#elif defined(CONFIG_MACH_ESPRESSO_VZW)
 	.mount_angle	= 90,
 	.sensor_stby	= GPIO_MAIN_CAM_STBY,
-#else
-	.mount_angle	= 0,
-	.sensor_stby	= GPIO_MAIN_CAM_STBY,
-#endif
 	.vt_sensor_reset	= GPIO_CAM2_RST_N,
 	.vt_sensor_stby	= GPIO_VT_STBY,
 	.flash_en	= GPIO_MSM_FLASH_CNTL_EN,
@@ -840,15 +832,7 @@ static struct msm_camera_sensor_flash_data flash_sr030pc50 = {
 };
 
 static struct msm_camera_sensor_platform_info sensor_board_info_sr030pc50 = {
-#if defined(CONFIG_MACH_ESPRESSO_ATT) \
-				|| defined(CONFIG_MACH_ESPRESSO10_VZW) \
-				|| defined(CONFIG_MACH_ESPRESSO10_SPR) \
-				|| defined(CONFIG_MACH_ESPRESSO10_ATT) \
-				|| defined(CONFIG_MACH_ESPRESSO_SPR)
-	.mount_angle	= 0,
-#else
 	.mount_angle	= 270,
-#endif
 	.sensor_reset	= GPIO_CAM1_RST_N,
 	.sensor_pwd	= GPIO_CAM_CORE_EN,
 	.sensor_stby	= GPIO_MAIN_CAM_STBY,
@@ -1281,11 +1265,7 @@ void __init msm8960_init_cam(void)
 static struct i2c_board_info msm8960_camera_i2c_boardinfo[] = {
 #ifdef CONFIG_S5K5CCGX
 	{
-#if defined(CONFIG_MACH_ESPRESSO_VZW) || defined(CONFIG_MACH_ESPRESSO_ATT) \
-				|| defined(CONFIG_MACH_ESPRESSO10_VZW) \
-				|| defined(CONFIG_MACH_ESPRESSO10_SPR) \
-				|| defined(CONFIG_MACH_ESPRESSO10_ATT) \
-				|| defined(CONFIG_MACH_ESPRESSO_SPR)
+#if defined(CONFIG_MACH_ESPRESSO_VZW)
 		I2C_BOARD_INFO("s5k5ccgx", 0x5A>>1),
 #else
 		I2C_BOARD_INFO("s5k5ccgx", 0x78>>1),

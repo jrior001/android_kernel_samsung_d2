@@ -146,11 +146,13 @@ static struct acpu_level acpu_freq_tbl_slow[] __initdata = {
 	{ 1, {  1134000, HFPLL, 1, 0x2A }, L2(18), 1175000, AVS(0x400015) },
 	{ 0, {  1188000, HFPLL, 1, 0x2C }, L2(18), 1200000, AVS(0x400015) },
 	{ 1, {  1242000, HFPLL, 1, 0x2E }, L2(18), 1200000, AVS(0x400015) },
+#if !defined(CONFIG_MSM_CPU_MAX_CLK_1DOT2GHZ)
 	{ 0, {  1296000, HFPLL, 1, 0x30 }, L2(18), 1225000, AVS(0x400015) },
 	{ 1, {  1350000, HFPLL, 1, 0x32 }, L2(18), 1225000, AVS(0x400015) },
 	{ 0, {  1404000, HFPLL, 1, 0x34 }, L2(18), 1237500, AVS(0x400015) },
 	{ 1, {  1458000, HFPLL, 1, 0x36 }, L2(18), 1237500, AVS(0x100018) },
 	{ 1, {  1512000, HFPLL, 1, 0x38 }, L2(18), 1250000, AVS(0x400012) },
+#endif
 #endif
 	{ 0, { 0 } }
 };
@@ -184,11 +186,13 @@ static struct acpu_level acpu_freq_tbl_nom[] __initdata = {
 	{ 1, {  1134000, HFPLL, 1, 0x2A }, L2(18), 1125000, AVS(0x400015) },
 	{ 0, {  1188000, HFPLL, 1, 0x2C }, L2(18), 1150000, AVS(0x400015) },
 	{ 1, {  1242000, HFPLL, 1, 0x2E }, L2(18), 1150000, AVS(0x400015) },
+#if !defined(CONFIG_MSM_CPU_MAX_CLK_1DOT2GHZ)
 	{ 0, {  1296000, HFPLL, 1, 0x30 }, L2(18), 1175000, AVS(0x400015) },
 	{ 1, {  1350000, HFPLL, 1, 0x32 }, L2(18), 1175000, AVS(0x400015) },
 	{ 0, {  1404000, HFPLL, 1, 0x34 }, L2(18), 1187500, AVS(0x400015) },
 	{ 1, {  1458000, HFPLL, 1, 0x36 }, L2(18), 1187500, AVS(0x100018) },
 	{ 1, {  1512000, HFPLL, 1, 0x38 }, L2(18), 1200000, AVS(0x400012) },
+#endif
 #endif
 	{ 0, { 0 } }
 };
@@ -211,11 +215,13 @@ static struct acpu_level acpu_freq_tbl_fast[] __initdata = {
 	{ 1, {  1134000, HFPLL, 1, 0x2A }, L2(18), 1075000, AVS(0x10001B) },
 	{ 0, {  1188000, HFPLL, 1, 0x2C }, L2(18), 1100000, AVS(0x10001B) },
 	{ 1, {  1242000, HFPLL, 1, 0x2E }, L2(18), 1100000, AVS(0x10001B) },
+#if !defined(CONFIG_MSM_CPU_MAX_CLK_1DOT2GHZ)
 	{ 0, {  1296000, HFPLL, 1, 0x30 }, L2(18), 1125000, AVS(0x10001B) },
 	{ 1, {  1350000, HFPLL, 1, 0x32 }, L2(18), 1125000, AVS(0x400012) },
 	{ 0, {  1404000, HFPLL, 1, 0x34 }, L2(18), 1137500, AVS(0x400012) },
 	{ 1, {  1458000, HFPLL, 1, 0x36 }, L2(18), 1137500, AVS(0x400012) },
 	{ 1, {  1512000, HFPLL, 1, 0x38 }, L2(18), 1150000, AVS(0x400012) },
+#endif
 	{ 0, { 0 } }
 };
 
